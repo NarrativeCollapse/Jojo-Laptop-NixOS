@@ -46,6 +46,12 @@
       #   it the real one ("26.05.20260926.5e2305d"), which update-reminder
       #   reads the packages' age from (through `nixos-version`).
       system.nixos.versionSuffix = lib.mkOverride 40 versionSuffix;
+      # - The VM framework swaps the video drivers for its own
+      #   ("modesetting", at priority 10), which would leave the NVIDIA
+      #   driver out of the VM altogether. Keep the laptop's, so the VM
+      #   boots the same driver setup. (With no NVIDIA GPU in the VM, the
+      #   driver's modules and nvidia-powerd fail to start; expected.)
+      services.xserver.videoDrivers = lib.mkOverride 5 [ "nvidia" ];
       # - Enough memory and CPU for Plasma.
       virtualisation = {
         memorySize = 4096;
@@ -212,7 +218,8 @@
 
     with subtest("NVIDIA: driver installed, offload command, Steam on the RTX 4060"):
         # The VM has no NVIDIA GPU, so the driver can't load here; check that
-        # it's built for the running kernel and that the offload pieces exist.
+        # it's installed for the running kernel and that the offload pieces
+        # exist.
         machine.succeed("modinfo -F version nvidia")
         machine.succeed("su - austin -c 'command -v nvidia-offload nvidia-smi'")
         # Steam's environment (its FHS profile) starts it on the NVIDIA GPU.
