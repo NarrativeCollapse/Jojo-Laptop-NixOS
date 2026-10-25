@@ -1,0 +1,4 @@
+# Modules are grouped by topic (boot, graphics, firewall, ...), so the same
+# top-level key (`services`, `boot`, ...) legitimately recurs across sections.
+disabled = ["repeated_keys"]
+ignore = [".direnv"]

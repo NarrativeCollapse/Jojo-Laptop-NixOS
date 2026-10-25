@@ -1,0 +1,75 @@
+name: Update flake.lock
+
+# Manual only (Actions tab → Run workflow). Updates normally happen on the
+# laptop with `update`, which does the same bump, build and commit.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Frees disk space and installs Nix.
+      - uses: ./.github/actions/setup-nix
+
+      - name: Update inputs
+        id: update
+        run: |
+          nix flake update 2>&1 | tee update.log
+          if git diff --quiet flake.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A lock update changes the built system, so it gets a new config
+      # version (flake.nix, README "Current version" and Versions row).
+      - name: Bump version
+        id: bump
+        if: steps.update.outputs.changed == 'true'
+        run: echo "version=$(python3 scripts/bump-version.py update.log)" >> "$GITHUB_OUTPUT"
+
+      # Check and build before opening the pull request. The PR's own Check
+      # run waits for a manual "Approve and run" (GitHub holds workflow runs
+      # on pull requests opened by github-actions[bot]), so this is the test
+      # that counts.
+      - name: Check and build the updated system
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          nix flake check --print-build-logs
+          scripts/check-eval-warnings.sh
+          nix build --print-build-logs --no-link .#nixosConfigurations.jojo.config.system.build.toplevel
+
+      - name: Summarize changes
+        id: summary
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          {
+            echo 'body<<EOF'
+            echo "\`nix flake update\`, as ${{ steps.bump.outputs.version }}. \`nix flake check\`, the evaluation-warnings check and a full system build passed on the updated lock."
+            echo
+            echo '```'
+            grep -E "Updated input|→|'github:" update.log
+            echo '```'
+            echo
+            echo "After merging: \`git pull && rebuild\` on the laptop, and tag the merge commit ${{ steps.bump.outputs.version }}."
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Clean up
+        run: rm -f update.log
+
+      - uses: peter-evans/create-pull-request@v8
+        if: steps.update.outputs.changed == 'true'
+        with:
+          branch: update-flake-lock
+          commit-message: "chore: update flake.lock"
+          title: "chore: update flake.lock"
+          body: ${{ steps.summary.outputs.body }}
+          delete-branch: true

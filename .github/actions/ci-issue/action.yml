@@ -1,0 +1,55 @@
+name: Report failures in an issue
+description: >-
+  Opens an issue when the job fails, or comments on the one it opened
+  before, and closes that issue once the job passes again.
+
+# Why: GitHub emails a scheduled run's failure only to whoever last edited
+# the schedule, and the commits here are authored by an address with no
+# GitHub account, so a failure reached no one. An issue (which mentions the
+# repository's owner) shows up in GitHub's notifications and email like
+# any other. Needs `issues: write` in the workflow's permissions; run it as
+# the job's last step with `if: always()`. Cancelled runs report nothing.
+inputs:
+  status:
+    description: The job's status, from job.status.
+    required: true
+  hint:
+    description: What a failure of this workflow means, for the issue.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Open, update or close the issue
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        STATUS: ${{ inputs.status }}
+        HINT: ${{ inputs.hint }}
+        TITLE: ${{ github.workflow }} is failing
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        # The issue this workflow opened, if it's still open.
+        number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title |
+          jq -r --arg title "$TITLE" 'map(select(.title == $title)) | first | .number // empty')
+        run="$RUN_URL (commit ${GITHUB_SHA:0:7}, $GITHUB_EVENT_NAME)"
+        case $STATUS in
+          failure)
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Failed again: $run"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$(
+                printf '**%s** failed: %s\n\n%s\n\n%s\n\n@%s' \
+                  "$GITHUB_WORKFLOW" "$run" "$HINT" \
+                  "This issue stays open while the workflow keeps failing (each new failure adds a comment) and closes itself when it passes again." \
+                  "$GITHUB_REPOSITORY_OWNER"
+              )"
+            fi
+            ;;
+          success)
+            if [ -n "$number" ]; then
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" --reason completed --comment "Passing again: $run"
+            fi
+            ;;
+        esac

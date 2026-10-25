@@ -1,0 +1,57 @@
+name: Next NixOS release
+
+# Runs the same checks as the Check workflow, but against the next NixOS
+# release instead of the one flake.lock pins, so options and packages that
+# change show up here weeks before an upgrade. scripts/next-release.sh picks
+# what "next" means: the next release's own branches once they exist,
+# nixos-unstable until then. flake.lock isn't touched. A failure here opens
+# an issue but blocks nothing; see "Release upgrade" in README.md.
+on:
+  schedule:
+    - cron: "23 6 * * 1" # Mondays, 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # a failure opens an issue (.github/actions/ci-issue)
+
+concurrency:
+  group: next-release
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # $NEXT: the --override-input arguments for the next release. The run's
+      # summary page shows which branches it used.
+      - name: Pick the next release
+        run: |
+          next=$(scripts/next-release.sh)
+          echo "NEXT=$next" >> "$GITHUB_ENV"
+          echo "Checked against: \`$next\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: ./.github/actions/setup-nix
+
+      # $NEXT is unquoted on purpose: it's a list of arguments.
+      - name: nix flake check
+        run: nix flake check --print-build-logs $NEXT
+
+      - name: No evaluation warnings
+        run: scripts/check-eval-warnings.sh $NEXT
+
+      - name: Build the system
+        run: nix build --print-build-logs --no-link $NEXT .#nixosConfigurations.jojo.config.system.build.toplevel
+
+      - name: Report in an issue
+        if: always()
+        uses: ./.github/actions/ci-issue
+        with:
+          status: ${{ job.status }}
+          hint: >-
+            Something in the next NixOS release breaks this config. The laptop
+            is unaffected: fix it before the upgrade (see "Release upgrade" in
+            README.md). Unstable sometimes breaks on its own for a few days,
+            so look at why it failed before changing anything.

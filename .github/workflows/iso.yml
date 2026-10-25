@@ -1,0 +1,38 @@
+name: Build installer ISO
+
+# Manual only (Actions tab → Run workflow). Builds the installer ISO
+# (hosts/installer/configuration.nix) and uploads it as a download on the
+# run's page. The upload is skipped if the repository is ever made private
+# again: private repositories get ~500 MB of free Actions storage, and the
+# ISO is ~3 GB. Either way it can be built locally:
+#   nix build ~/nixos-config#installer-iso
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Frees disk space and installs Nix.
+      - uses: ./.github/actions/setup-nix
+
+      - name: Build the ISO
+        run: |
+          nix build --print-build-logs .#installer-iso
+          mkdir iso
+          cp result/iso/*.iso iso/
+          (cd iso && sha256sum *.iso > SHA256SUMS && cat SHA256SUMS)
+          ls -lh iso
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !github.event.repository.private }}
+        with:
+          name: installer-iso
+          path: iso/
+          compression-level: 0
+          retention-days: 7

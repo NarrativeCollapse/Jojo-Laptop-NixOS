@@ -1,0 +1,52 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only for the code: this workflow only checks and builds. A failure
+# on main opens an issue (.github/actions/ci-issue).
+permissions:
+  contents: read
+  issues: write
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Frees disk space and installs Nix.
+      - uses: ./.github/actions/setup-nix
+
+      # Format, statix, deadnix, README version, evaluation of the system, and
+      # the VM boot test (tests/boot.nix; install-nix-action enables KVM).
+      - name: nix flake check
+        run: nix flake check --print-build-logs
+
+      # NixOS warns about a renamed or deprecated option for a release or so
+      # before it becomes an error, so a warning now is a failed build at a
+      # later upgrade. Fail now, while the fix is easy.
+      - name: No evaluation warnings
+        run: scripts/check-eval-warnings.sh
+
+      # Evaluating isn't building: this catches packages that fail to build.
+      - name: Build the system
+        run: nix build --print-build-logs --no-link .#nixosConfigurations.jojo.config.system.build.toplevel
+
+      # Only for main: a pull request's own page shows its failures.
+      - name: Report in an issue
+        if: always() && github.ref == 'refs/heads/main'
+        uses: ./.github/actions/ci-issue
+        with:
+          status: ${{ job.status }}
+          hint: >-
+            The config on main doesn't pass its checks. Hold off on `rebuild`
+            and `update` on the laptop until this issue closes.

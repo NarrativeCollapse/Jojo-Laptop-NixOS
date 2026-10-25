@@ -1,0 +1,19 @@
+name: Set up Nix
+description: Frees disk space on the runner and installs Nix.
+
+runs:
+  using: composite
+  steps:
+    # The full system closure (Plasma, Steam, fonts) needs more disk than a
+    # stock runner leaves free.
+    - name: Free disk space
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+        df -h /
+
+    # Everything slow comes prebuilt from cache.nixos.org; what CI builds
+    # itself is small config files, so there is no separate build cache.
+    # (Xwayland used to be compiled here; see programs.xwayland in
+    # modules/desktop.nix.)
+    - uses: cachix/install-nix-action@v31
