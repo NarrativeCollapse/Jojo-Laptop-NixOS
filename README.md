@@ -7,7 +7,7 @@ Acer gaming laptop running Plasma 6:
 | --- | --- | --- |
 | CPU | Intel Core i7-13620H (Raptor Lake, 6 performance + 4 efficiency cores) | Intel microcode updates, thermald, power profiles |
 | Graphics | Intel UHD Graphics and an NVIDIA GeForce RTX 4060 Laptop GPU (8 GB) | The Intel GPU runs the desktop; the RTX 4060 runs Steam and games and powers off otherwise (see [NVIDIA graphics](#nvidia-graphics)) |
-| Screen | 1920×1080, 144 Hz | Plasma picks 144 Hz by itself |
+| Screen | 1920×1080, 144 Hz | Plasma normally picks 144 Hz by itself (a [hardware checklist](#hardware-checklist) item) |
 | Memory | 16 GB | zram swap (compressed in RAM) and oomd |
 | SSD | 512 GB NVMe (WD PC SN740) | Erased by the installer and encrypted (LUKS2), TRIM passed through |
 | USB drives | WD My Passport 2 TB, WD Game Drive 4 TB SSD, Toshiba 1 TB | Mount as they are (NTFS or exFAT); see [Gaming](#gaming) for Steam games on them |
@@ -19,7 +19,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.1** (git tag `0.1`). See [Versions](#versions).
+**Current version: 0.2** (git tag `0.2`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -244,7 +244,8 @@ Windows still runs:
 4. **Eject the USB drives** (Safely Remove) and shut down with
    **Shift + Shut down**, so Windows' Fast Startup doesn't leave NTFS drives
    marked "in use" (if one won't mount on NixOS later,
-   `sudo ntfsfix -d /dev/sdX1` clears it).
+   `sudo ntfsfix -d /dev/sdX1` clears it). Leave them unplugged until
+   NixOS is installed: the installer's disk list then has only the SSD.
 
 Then in the **BIOS** (press **F2** repeatedly right after powering on):
 
@@ -259,7 +260,11 @@ Then in the **BIOS** (press **F2** repeatedly right after powering on):
 5. **F10** saves and restarts.
 
 To boot the installer, plug in the stick, power on and tap **F12**, then
-pick the USB stick. If the installer's disk list doesn't show the 512 GB
+pick the USB stick. If it freezes or the screen stays black on the way to
+the live desktop, start again and pick **No modesetting** from the stick's
+boot menu options (the NVIDIA GPU's open-source driver occasionally trips
+up the live system; the installed system uses NVIDIA's own). If the
+installer's disk list doesn't show the 512 GB
 SSD, the BIOS has Intel VMD (RST) on: on the BIOS's Main tab, press
 **Ctrl+S** to show hidden options and set **VMD Controller** to
 **Disabled** (older Acer BIOSes call it **SATA Mode**: set **AHCI**).
@@ -293,7 +298,7 @@ this exact config on a fresh (or the same) laptop.
 
   ```bash
   nix build ~/nixos-config#installer-iso
-  ls result/iso/        # jojo-installer-0.1.iso (its version), about 3 GB
+  ls result/iso/        # jojo-installer-<version>.iso, about 3 GB
   ```
 
 Write it to a USB stick (8 GB or more) with **ISO Image Writer** (in the
@@ -364,7 +369,7 @@ Then restore your files from the backup drive (see [Backups](#backups)).
 | Lint, evaluate and boot-test in a VM | `nix flake check` (a few minutes; see below) |
 | Create, open or remove a distrobox (another distro's apps and packages) | **BoxBuddy** in the app menu, or `distrobox create`/`enter` |
 | Steam with MangoHud + GameMode | `steam-hud` (toggle the overlay with Right Shift + F12) |
-| Run an app on the RTX 4060 | Right-click it in the app menu → **Run using dedicated graphics card**, or `nvidia-offload <command>` |
+| Run an app on the RTX 4060 | `nvidia-offload <command>`, or for good: right-click it in the app menu → **Edit Application…** → **Advanced Options** → tick **Run using dedicated graphics card** |
 | What's using the RTX 4060? | `nvidia-smi` (see [NVIDIA graphics](#nvidia-graphics)) |
 | Run a game with Proton-GE | In Steam: right-click the game → Properties → Compatibility → tick "Force the use of…" → pick **GE-Proton** |
 | See boot messages behind the splash | Press **Esc** during boot |
@@ -413,7 +418,9 @@ changes anything.
 - **[s] System** (`update-system`, in `modules/updates.nix`):
   1. Runs `git pull` in `~/nixos-config`, so changes pushed from elsewhere
      come first. It stops if `flake.lock`, `flake.nix` or `README.md` has
-     uncommitted edits.
+     uncommitted edits, and if this checkout has commits GitHub doesn't
+     (such as the hardware configuration from the install), it says how to
+     combine them (`git pull --rebase && git push`).
   2. Runs `nix flake update`. If nothing is newer, it says so and stops.
   3. Bumps the config version (`flake.nix`, the README's "Current version"
      and a Versions row naming the updated inputs) and commits it locally.
@@ -556,9 +563,12 @@ close to that of a laptop without one. What runs on the RTX 4060:
 
 - **Steam and every game it starts**, however Steam is opened (see
   [Gaming](#gaming)).
-- **Any app you choose:** right-click it in the app menu → **Run using
-  dedicated graphics card**, or in a terminal `nvidia-offload <command>`
-  (for example `nvidia-offload blender`).
+- **Any app you choose:** once, in a terminal, with `nvidia-offload
+  <command>` (for example `nvidia-offload blender`); or every time it
+  starts: right-click it in the app menu → **Edit Application…** →
+  **Advanced Options** → tick **Run using dedicated graphics card**
+  (Plasma then launches it on the RTX 4060 from the menu, the taskbar and
+  KRunner).
 - **An external display on the HDMI port**, on most laptops like this one,
   where that port is wired to the NVIDIA GPU: the GPU stays on while the
   display is connected.
@@ -605,9 +615,11 @@ Shift + F12 toggles it) and GameMode.
   %command%` adds the overlay). Steam opened from the app menu runs games
   without it.
 - **NTSYNC:** the kernel's own version of Windows' thread
-  synchronization. Proton uses it instead of emulating it, which helps
-  CPU-heavy Windows games. To see it in use, while a Windows game runs:
-  `ls -l /proc/*/fd 2>/dev/null | grep -c ntsync` prints more than 0.
+  synchronization. Wine 11 and the Protons built on it (GE-Proton 11,
+  installed here) use it instead of emulating it, which helps CPU-heavy
+  Windows games. Protons built on older Wine may not. To see it in use,
+  while a Windows game runs: `ls -l /proc/*/fd 2>/dev/null | grep -c ntsync`
+  prints more than 0.
 - **Split-lock throttling off:** Intel's 12th-generation and newer CPUs
   detect "split locks" (an atomic memory operation across two cache lines,
   which stalls every core), and the kernel then slows the program on
@@ -624,9 +636,12 @@ drives) most likely has from Windows: Proton can't create some of the
 files it needs there, so games often fail to start. To play from that
 drive, reformat it as ext4 in
 Partition Manager (this erases it: copy anything on it elsewhere first),
-then add it in Steam → Settings → Storage. For Steam to find the library
-at every login, have Plasma mount it: System Settings → Disks & Devices
-→ Device Auto-Mount, tick it under **Login**. The internal SSD's 512 GB
+open it in Dolphin once so it's mounted, and make it yours (a new ext4
+drive belongs to root, so Steam couldn't write to it):
+`sudo chown austin: /run/media/austin/<its name>`. Then add it in Steam →
+Settings → Storage. For Steam to find the library at every login, have
+Plasma mount it: System Settings → Disks & Devices → Device Auto-Mount,
+tick it under **Login**. The internal SSD's 512 GB
 fill up fast with games; `filelight` shows what's using the space.
 
 ## Hardware notes
@@ -645,31 +660,26 @@ and [Gaming](#gaming):
   one isn't listed, so the fans follow the laptop's default mode and
   there's no Performance mode with higher power limits. It can be forced
   on, which often works since Nitro and Predator laptops share Acer's
-  interface: uncomment `boot.kernelParams = [ "acer_wmi.predator_v4=1" ];`
-  in `modules/hardware.nix`, rebuild and reboot. If
+  interface: in `modules/hardware.nix`, remove the `#` in front of
+  `options acer_wmi predator_v4=1` (in `boot.extraModprobeConfig`, with
+  the other driver options below), rebuild and reboot. If
   `cat /sys/firmware/acpi/platform_profile_choices` then lists modes, the
   battery icon's power profiles switch Acer's modes (Performance for
-  games), and `sensors` shows the fan speeds. If anything misbehaves,
-  comment it out again or boot the previous version. The keyboard's RGB
+  games), and `sensors` shows the fan speeds. If anything misbehaves, put
+  the `#` back or boot the previous version. The keyboard's RGB
   lighting and Acer's battery charge limit have no Linux support either.
 - **Thunderbolt:** if the USB-C port is Thunderbolt, a dock or drive asks
   to be authorized in System Settings → Thunderbolt (boltd).
 - **Wi-Fi:** which card the laptop has isn't known yet:
   `lspci -k | grep -iA3 network` shows it. Intel and MediaTek cards need
   nothing. If it's a **Realtek** card (rtw89, e.g. RTL8852BE) and Wi-Fi
-  drops or is slow, turn off its power saving by adding this to
-  `modules/hardware.nix` and rebuilding:
-
-  ```nix
-  boot.extraModprobeConfig = ''
-    options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
-    options rtw89_core disable_ps_mode=y
-  '';
-  ```
-- **Screen flicker** (rare, on some laptop panels with Intel graphics):
-  add `boot.kernelParams = [ "i915.enable_psr=0" ];` to
-  `modules/hardware.nix`. It turns off Panel Self Refresh, at a small cost
-  in battery life.
+  drops or is slow, turn off its power saving: in `modules/hardware.nix`,
+  remove the `#` in front of the two `options rtw89_…` lines, rebuild and
+  reboot.
+- **Screen flicker** (rare, on some laptop panels with Intel graphics): in
+  `modules/hardware.nix`, remove the `#` in front of
+  `options i915 enable_psr=0`, rebuild and reboot. It turns off Panel
+  Self Refresh, at a small cost in battery life.
 - **Suspend:** laptops of this generation usually only have "modern
   standby" (`cat /sys/power/mem_sleep` shows `[s2idle]`), which uses a
   little more battery while asleep than older laptops' deep sleep. If the
@@ -1289,7 +1299,9 @@ desktop. It has two parts:
 
 **Disk health** (`services.smartd` in `modules/hardware.nix`): smartd reads
 the SSD's own health counters (spare blocks, wear, media errors,
-temperature) every 30 minutes. If one crosses the limit the drive itself
+temperature) every 30 minutes, without waking a USB hard drive that's
+asleep (it checks one of those at least every 12 hours). If one crosses
+the limit the drive itself
 sets, a critical notification says which disk and what's wrong, and it
 repeats daily until fixed (also in `journalctl -u smartd`). Drives usually
 report trouble like this weeks before they fail, so treat it as: make sure
@@ -1385,4 +1397,5 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.1** | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |
+| **0.2** | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |
+| 0.1 | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |

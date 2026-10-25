@@ -6,12 +6,12 @@
   #
   # The Intel GPU runs the desktop and the laptop's own screen; the RTX 4060
   # powers down when nothing uses it and wakes for what's started on it
-  # (PRIME render offload): Steam and its games (gaming.nix), anything
-  # right-clicked in the app menu → "Run using dedicated graphics card",
-  # and `nvidia-offload <command>` in a terminal. That keeps battery life
-  # close to an Intel-only laptop. On most laptops like this one the HDMI
-  # port is wired to the NVIDIA GPU, so an external display there wakes it
-  # for as long as the display is connected.
+  # (PRIME render offload): Steam and its games (gaming.nix), apps set to
+  # "Run using dedicated graphics card" (app menu → right-click → Edit
+  # Application… → Advanced Options), and `nvidia-offload <command>` in a
+  # terminal. That keeps battery life close to an Intel-only laptop. On
+  # most laptops like this one the HDMI port is wired to the NVIDIA GPU, so
+  # an external display there wakes it for as long as it's connected.
 
   # The name is historical: this loads the NVIDIA driver for Wayland too.
   services.xserver.videoDrivers = [ "nvidia" ];
@@ -59,9 +59,8 @@
   # The driver is unfree; allowed by name (see "Unfree packages" in base.nix).
   my.unfreePackages = [ "nvidia-x11" ];
 
-  # Tells Plasma which GPU is the dedicated one, for the app menu's "Run
-  # using dedicated graphics card" and apps that ask for it in their
-  # .desktop file (PrefersNonDefaultGPU).
+  # Tells Plasma which GPU is the dedicated one, for apps set to "Run using
+  # dedicated graphics card" and apps that ask for it in their .desktop
+  # file (PrefersNonDefaultGPU).
   services.switcherooControl.enable = true;
-
 }

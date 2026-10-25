@@ -13,7 +13,9 @@ fi
 
 echo "Fetching config changes from GitHub..."
 if ! git pull --ff-only --quiet; then
-  echo "git pull failed (offline, or local commits that need merging first)."
+  echo "git pull failed: offline, or this checkout has commits GitHub doesn't"
+  echo "(such as the hardware configuration the installer committed). To put"
+  echo "them on top of GitHub's and upload them: git pull --rebase && git push"
   exit 1
 fi
 

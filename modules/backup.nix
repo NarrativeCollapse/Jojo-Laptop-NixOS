@@ -57,6 +57,7 @@ in
     # restic dedups the near-identical Wine files across prefixes.
     exclude = map (path: "${home}/${path}") [
       ".cache"
+      ".nv" # NVIDIA's shader and compute caches
       ".local/share/Steam/steamapps/common" # installed games
       ".local/share/Steam/steamapps/shadercache"
       ".local/share/Steam/steamapps/downloading"
@@ -164,12 +165,14 @@ in
       notify-send --urgency=critical --app-name=Backups --icon=drive-harddisk "Backups are out of date" "$msg"
     '';
   };
+  # Counted from login, as update-reminder (updates.nix): a calendar timer
+  # catching up on a missed day would fire right at login, before Plasma
+  # can show the warning, and then again 10 minutes later.
   systemd.user.timers.backup-reminder = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnStartupSec = "10min";
-      OnCalendar = "daily";
-      Persistent = true;
+      OnUnitActiveSec = "1d";
     };
   };
 

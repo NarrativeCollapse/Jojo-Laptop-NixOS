@@ -121,17 +121,31 @@ in
   # the ones Windows uses.
   services.thermald.enable = true;
 
-  # Acer's own performance modes and fan readings (what NitroSense does on
-  # Windows). Linux's acer-wmi driver has them, but switches them on only
-  # for the models it lists (some Predators and the Nitro AN515-58), and
-  # this laptop isn't one. Acer's Nitro and Predator laptops share the
-  # interface, so forcing it on often works, but it's untested here. To
-  # try: uncomment, rebuild, reboot. Then
-  # `cat /sys/firmware/acpi/platform_profile_choices` lists Acer's modes,
-  # the battery icon's power profiles switch between them (Performance
-  # raises the power limits for games), and `sensors` shows the fans. If
-  # anything misbehaves, comment it out again or boot the previous version.
-  # boot.kernelParams = [ "acer_wmi.predator_v4=1" ];
+  # Driver options to try on this laptop, one per problem: remove the `#`
+  # in front of an `options` line, then rebuild and reboot. (Comments
+  # inside this text are modprobe's own, so editing it can't break the
+  # build. The file also reaches the initrd, where i915 loads.) If one
+  # makes things worse, put the `#` back or boot the previous version.
+  boot.extraModprobeConfig = ''
+    # Acer's performance modes and fan readings (what NitroSense does on
+    # Windows). acer-wmi has them but turns them on only for the models it
+    # lists (some Predators and the Nitro AN515-58), not this one; forcing
+    # them often works, since Nitro and Predator laptops share Acer's
+    # interface. Then `cat /sys/firmware/acpi/platform_profile_choices`
+    # lists Acer's modes, the battery icon's power profiles switch between
+    # them (Performance raises the power limits for games), and `sensors`
+    # shows the fans.
+    #options acer_wmi predator_v4=1
+
+    # Realtek Wi-Fi (rtw89, e.g. RTL8852BE) that drops or is slow: turn off
+    # its power saving. (`lspci -k | grep -iA3 network` names the card.)
+    #options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
+    #options rtw89_core disable_ps_mode=y
+
+    # Screen flicker (some panels with Intel graphics): turn off Panel Self
+    # Refresh, at a small cost in battery life.
+    #options i915 enable_psr=0
+  '';
 
   # Thunderbolt: boltd lets a Thunderbolt dock or drive connect (System
   # Settings → Thunderbolt asks to authorize it). Does nothing if the USB-C
@@ -151,12 +165,18 @@ in
     # The module's own alerts are terminal `wall` messages and X11 pop-ups;
     # smartdNotify (top of this file) sends a desktop notification instead.
     notifications.wall.enable = false;
-    defaults.monitored = "-a -m <nomailer> -M daily -M exec ${smartdNotify}";
+    # -n standby: don't spin up a sleeping hard drive just to check it
+    # (the WD My Passport and Toshiba USB drives), except after 24 skipped
+    # checks (12 hours), so one that's always asleep still gets checked.
+    defaults.monitored = "-a -n standby,24,q -m <nomailer> -M daily -M exec ${smartdNotify}";
   };
   environment.systemPackages = [
     # `sensors`: CPU core and NVMe temperatures (and fan speeds, where the
     # driver reports them).
     pkgs.lm_sensors
+    # `lspci`: the PCI devices and their drivers (which GPU is where, which
+    # Wi-Fi card); NixOS doesn't install it by default.
+    pkgs.pciutils
     (pkgs.writeShellApplication {
       name = "disk-health";
       text = ''

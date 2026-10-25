@@ -64,10 +64,11 @@
   programs.gamemode.enable = true;
 
   # NTSYNC: the kernel's own version of Windows' thread-synchronization
-  # calls (Linux 6.14 and later). Proton uses it, instead of emulating them,
-  # when /dev/ntsync exists, which helps CPU-heavy Windows games run more
-  # smoothly. The kernel has it as a module that nothing loads, and its
-  # device would be root-only; Proton only needs to read it.
+  # calls (Linux 6.14 and later). Wine 11, and the Protons built on it
+  # (GE-Proton 11, installed below), use it instead of emulating them
+  # whenever /dev/ntsync exists, which helps CPU-heavy Windows games run
+  # more smoothly. The kernel has it as a module that nothing loads, and
+  # its device would be root-only; Wine opens it read-only.
   boot.kernelModules = [ "ntsync" ];
   services.udev.extraRules = ''
     KERNEL=="ntsync", MODE="0644"

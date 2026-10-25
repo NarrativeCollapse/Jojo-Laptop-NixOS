@@ -36,6 +36,8 @@ if [ "${#disks[@]}" -eq 0 ]; then
   exit 1
 fi
 lsblk -dpo NAME,SIZE,MODEL,TRAN "${disks[@]}"
+echo "(The laptop's own SSD is the nvme one, usually /dev/nvme0n1. Disks marked"
+echo "usb are external drives: better unplugged before installing.)"
 echo
 read -r -p "Disk to install on (e.g. /dev/nvme0n1): " disk
 [[ $disk == /dev/* ]] || disk="/dev/$disk"

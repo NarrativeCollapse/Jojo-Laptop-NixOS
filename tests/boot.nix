@@ -126,10 +126,11 @@
             " backup-test brew-update disk-health nixos-motd toggle-motd"
             " boxbuddy-rs'"
         )
-        # The standalone CLI tools come from Nix (bling.nix), not Homebrew.
+        # The standalone CLI tools come from Nix (bling.nix; sensors and
+        # lspci from hardware.nix), not Homebrew.
         machine.succeed(
             "su - austin -c 'command -v rg fd bat tv jq yq gh glab dysk"
-            " trash-put tldr shellcheck stress-ng'"
+            " trash-put tldr shellcheck stress-ng sensors lspci'"
         )
         # yq is the Go one (mikefarah/yq), as Homebrew's was.
         yq = machine.succeed("su - austin -c 'yq --version'")
