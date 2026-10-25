@@ -36,11 +36,8 @@ in
     wayland.enable = true;
   };
 
-  # NOTE: defaultSession is intentionally NOT pinned. With Plasma 6 and the
-  # gamescope session both registered, letting SDDM remember the last choice
-  # avoids silently falling back when a session name is wrong. If you ever
-  # want to force one, check the exact name first with:
-  #   ls /run/current-system/sw/share/wayland-sessions/
+  # No defaultSession: Plasma (Wayland) is the only session, so SDDM starts
+  # it without being told.
 
   services.desktopManager.plasma6.enable = true;
 

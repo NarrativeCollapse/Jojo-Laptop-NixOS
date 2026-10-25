@@ -36,6 +36,10 @@
     # The nvidia-settings app mostly configures X11, which Plasma on Wayland
     # doesn't use; `nvidia-smi` shows the GPU's state instead.
     nvidiaSettings = false;
+    # No NVIDIA video decoding (nvidia-vaapi-driver, on by default): the
+    # Intel GPU decodes video (hardware.nix), so the RTX 4060 can stay off
+    # while a video plays.
+    videoAcceleration = false;
     prime = {
       offload = {
         enable = true;

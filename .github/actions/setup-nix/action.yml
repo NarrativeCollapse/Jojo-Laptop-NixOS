@@ -13,7 +13,6 @@ runs:
         df -h /
 
     # Everything slow comes prebuilt from cache.nixos.org; what CI builds
-    # itself is small config files, so there is no separate build cache.
-    # (Xwayland used to be compiled here; see programs.xwayland in
-    # modules/desktop.nix.)
+    # itself is small config files and NVIDIA's unpacked driver, so there is
+    # no separate build cache.
     - uses: cachix/install-nix-action@v31

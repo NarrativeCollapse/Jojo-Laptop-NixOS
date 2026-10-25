@@ -19,7 +19,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: v2** (git tag `v2`). See [Versions](#versions).
+**Current version: v3** (git tag `v3`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -371,7 +371,7 @@ Then restore your files from the backup drive (see [Backups](#backups)).
 | Check the SSD's health | `disk-health` (sudo password) |
 | Use a CAC (one-time setup) | `cac-setup`; see [Smart cards (CAC)](#smart-cards-cac) |
 | Which commit is running? | `nixos-version --configuration-revision` |
-| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `v25-26.05…`) |
+| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `v3-26.05…`) |
 
 `nix flake check` fails on unformatted files, statix/deadnix findings, a
 README whose "Current version" doesn't match `version` in `flake.nix`, a
@@ -517,17 +517,12 @@ does: `update` only moves within the release.
 - **CI fails on evaluation warnings.** NixOS warns about a renamed or
   deprecated option for a release before making it an error, so a warning
   today is a broken build at the next upgrade.
-- **Known differences are handled for both releases.** The first run
-  against unstable (October 2026, in the shitbox config this one copies)
-  found two: the
-  journal's size limit is now a systemd drop-in file (the journald option
-  changed), and Mullvad picks its 26.05 or 26.11 setup automatically (26.11
-  splits the app from the daemon). The run on 19 October found three more,
-  fixed without changing the 26.05 system: 26.11 removes the old scripted
-  initrd, so `boot.initrd.systemd.enable` (already the default) and
-  `boot.initrd.verbose` (which only it read) are no longer set; and it
-  removes the `kwin-x11` package, so Plasma's exclusion list names it only
-  where it still exists.
+- **Known differences are handled for both releases:** the journal's size
+  limit is a systemd drop-in file (the journald option changed), Mullvad
+  picks its 26.05 or 26.11 setup by itself (26.11 splits the app from the
+  daemon), the initrd settings 26.11 rejects aren't set (it only has the
+  systemd initrd, 26.05's default), and Plasma's exclusion list names
+  `kwin-x11` only where the package still exists.
 
 **Upgrade day** (once 26.11 is out and the Next release run is green):
 
@@ -581,6 +576,9 @@ Useful to know:
   adds a few minutes to that update.
 - **Suspend:** the GPU's memory is saved across suspend, so a game left
   running survives closing the lid.
+- **Video** is decoded by the Intel GPU (VA-API), in browsers and video
+  players alike, so a video doesn't wake the RTX 4060. NVIDIA's own
+  video-decoding driver isn't installed.
 - **Dynamic Boost** (`nvidia-powerd`): on AC, when a game is limited by the
   GPU, power shifts from the CPU to the GPU, as NVIDIA's Windows driver
   does.
@@ -752,7 +750,7 @@ terminal the Nix way. Bazzite installs these tools with Homebrew
 (`ujust bazzite-cli`) and appends lines to your shell's rc file; here Home
 Manager declares all of it. Adapted from Bazzite (Apache-2.0).
 
-<img src="docs/screenshots/welcome-banner-v52.png" alt="The welcome banner in Konsole: a black-and-white NixOS logo beside the NixOS version and config version, then a table of common commands, a tip and links" width="820">
+<img src="docs/screenshots/welcome-banner-v3.png" alt="The welcome banner in Konsole: a black-and-white NixOS logo beside the NixOS version and config version, then a table of common commands, a tip and links" width="820">
 
 <sub>Rendered from the banner script in Konsole's colors; the generation
 number is an example.</sub>
@@ -1065,11 +1063,6 @@ too old to use. Each tool source has one job:
 | distrobox | Another distro's userspace, for software made for it (.deb/.rpm, other distros' packages) |
 | Steam + Proton | Windows games |
 
-Until shitbox's v56 Homebrew also carried gh, glab, ripgrep, fd, bat, jq, yq,
-television, dysk, trash-cli, tealdeer, shellcheck and stress-ng; they're
-stable enough that the NixOS release's versions do fine, so they moved to
-Nix (`home/austin/bling.nix`), where rollbacks and CI cover them.
-
 **How it works** (`modules/homebrew.nix`):
 
 - `/home/linuxbrew` is created for you, owned by you, so brew never needs
@@ -1350,8 +1343,8 @@ way). The shared step is `.github/actions/ci-issue/action.yml`.
 cache.nixos.org; CI (and the laptop) build small config files, and
 unpack NVIDIA's driver, which the cache can't carry because it's unfree
 (a download from NVIDIA and a few minutes; see
-[NVIDIA graphics](#nvidia-graphics)). The former exception,
-Xwayland, is now the stock package: see
+[NVIDIA graphics](#nvidia-graphics)). Xwayland is the stock package
+too, rather than one NixOS would rebuild on every update: see
 `programs.xwayland.defaultFontPath` in `modules/desktop.nix`. The
 workflows share their setup (disk space, Nix) through
 `.github/actions/setup-nix/action.yml`.
@@ -1390,5 +1383,6 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **v2** | Tuned for the hardware: NTSYNC for Proton (module loaded, `/dev/ntsync` readable), split-lock throttling off as on SteamOS, no Steam gamescope session (unreliable with hybrid graphics), Thunderbolt authorization (boltd), `sensors`, and EasyEffects for sound. Acer's performance modes are ready to try (`acer_wmi.predator_v4`, commented out). Fix from shitbox v65: the update reminder reads the date from `nixos-version`. README: Hardware notes (Wi-Fi by card, screen flicker, suspend, external displays), GameMode's core pinning, more checklist items. The boot test checks NTSYNC. |
+| **v3** | Cleanup of what came over from shitbox: NVIDIA's video-decoding driver is no longer installed (the Intel GPU decodes video), and stale comments and README history are gone (the gamescope-session note, Homebrew's and Xwayland's history, the release-upgrade narrative). New welcome-banner screenshot for jojo. |
+| v2 | Tuned for the hardware: NTSYNC for Proton (module loaded, `/dev/ntsync` readable), split-lock throttling off as on SteamOS, no Steam gamescope session (unreliable with hybrid graphics), Thunderbolt authorization (boltd), `sensors`, and EasyEffects for sound. Acer's performance modes are ready to try (`acer_wmi.predator_v4`, commented out). Fix from shitbox v65: the update reminder reads the date from `nixos-version`. README: Hardware notes (Wi-Fi by card, screen flicker, suspend, external displays), GameMode's core pinning, more checklist items. The boot test checks NTSYNC. |
 | v1 | jojo's first version: a copy of the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload with fine-grained power management and Dynamic Boost; Steam and its games run on it; "Run using dedicated graphics card" in the app menu and `nvidia-offload`. Installed fresh on 26.05 (stateVersion 26.05). README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, and an updated hardware checklist. |
