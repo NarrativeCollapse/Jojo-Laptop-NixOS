@@ -116,8 +116,27 @@ in
   services.logind.settings.Login.HandleLidSwitchExternalPower = "ignore";
 
   # Intel thermal management. Separate concern from power-profiles-daemon
-  # (which handles the CPU governor/EPP, not thermal trip points).
+  # (which handles the CPU governor/EPP, not thermal trip points). It runs
+  # in adaptive mode, following the thermal tables in the laptop's firmware,
+  # the ones Windows uses.
   services.thermald.enable = true;
+
+  # Acer's own performance modes and fan readings (what NitroSense does on
+  # Windows). Linux's acer-wmi driver has them, but switches them on only
+  # for the models it lists (some Predators and the Nitro AN515-58), and
+  # this laptop isn't one. Acer's Nitro and Predator laptops share the
+  # interface, so forcing it on often works, but it's untested here. To
+  # try: uncomment, rebuild, reboot. Then
+  # `cat /sys/firmware/acpi/platform_profile_choices` lists Acer's modes,
+  # the battery icon's power profiles switch between them (Performance
+  # raises the power limits for games), and `sensors` shows the fans. If
+  # anything misbehaves, comment it out again or boot the previous version.
+  # boot.kernelParams = [ "acer_wmi.predator_v4=1" ];
+
+  # Thunderbolt: boltd lets a Thunderbolt dock or drive connect (System
+  # Settings → Thunderbolt asks to authorize it). Does nothing if the USB-C
+  # port isn't Thunderbolt.
+  services.hardware.bolt.enable = true;
 
   services.fwupd.enable = true;
   hardware.enableRedistributableFirmware = true;
@@ -135,6 +154,9 @@ in
     defaults.monitored = "-a -m <nomailer> -M daily -M exec ${smartdNotify}";
   };
   environment.systemPackages = [
+    # `sensors`: CPU core and NVMe temperatures (and fan speeds, where the
+    # driver reports them).
+    pkgs.lm_sensors
     (pkgs.writeShellApplication {
       name = "disk-health";
       text = ''

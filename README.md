@@ -19,7 +19,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: v1** (git tag `v1`). See [Versions](#versions).
+**Current version: v2** (git tag `v2`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -97,9 +97,14 @@ Everything below is reference: read the part you need.
   work as before (zsh expands them). CAC smart cards work in LibreWolf
   with a USB reader (see [Smart cards (CAC)](#smart-cards-cac)).
 - **Gaming:** Steam (and every game it starts) on the RTX 4060, with
-  NVIDIA Dynamic Boost on AC, a gamescope session and Proton-GE available
-  as a compatibility tool, GameMode, MangoHud, and xpadneo for Xbox
-  controllers over Bluetooth (see [Gaming](#gaming)).
+  NVIDIA Dynamic Boost on AC, Proton-GE available as a compatibility tool,
+  NTSYNC (the kernel's Windows-style thread synchronization, which Proton
+  uses), split-lock throttling off as on the Steam Deck, GameMode (which
+  pins a game to the CPU's performance cores), MangoHud, and xpadneo for
+  Xbox controllers over Bluetooth (see [Gaming](#gaming)).
+- **Sound:** EasyEffects (a Flatpak) for an equalizer and effects on the
+  speakers, headphones and microphone, as SteelSeries Sonar did on
+  Windows.
 - **Shell & tools:** zsh + Starship with a Bazzite-style terminal (welcome
   banner, branded fastfetch, eza/atuin/zoxide/direnv and friends; see
   [Terminal](#terminal-bazzite-style)), Neovim with
@@ -592,6 +597,29 @@ starts it with the MangoHud overlay (FPS, frame times, CPU and GPU
 temperature, and the GPU's name, to confirm it's the RTX 4060; Right
 Shift + F12 toggles it) and GameMode.
 
+**Tuned for this CPU and Proton:**
+
+- **GameMode** switches the CPU to its performance governor and pins the
+  game to the i7's 6 performance cores, leaving the 4 efficiency cores to
+  everything else. It applies to games started under it: everything when
+  Steam was opened with `steam-hud`, or one game with `gamemoderun
+  %command%` in its Properties → Launch Options (`mangohud gamemoderun
+  %command%` adds the overlay). Steam opened from the app menu runs games
+  without it.
+- **NTSYNC:** the kernel's own version of Windows' thread
+  synchronization. Proton uses it instead of emulating it, which helps
+  CPU-heavy Windows games. To see it in use, while a Windows game runs:
+  `ls -l /proc/*/fd 2>/dev/null | grep -c ntsync` prints more than 0.
+- **Split-lock throttling off:** Intel's 12th-generation and newer CPUs
+  detect "split locks" (an atomic memory operation across two cache lines,
+  which stalls every core), and the kernel then slows the program on
+  purpose. Some Windows games do it all the time and stutter. SteamOS and
+  Bazzite turn the throttling off; so does this config.
+- **No Steam gamescope session at the login screen:** on a laptop whose
+  screen runs on the Intel GPU and whose games run on the RTX 4060, it
+  tends to come up black. Big Picture inside Plasma (Steam → View → Big
+  Picture Mode) does the same job.
+
 **Steam games on the USB drives.** Valve advises against running Proton
 games from an NTFS drive, the format the WD Game Drive (and the other
 drives) most likely has from Windows: Proton can't create some of the
@@ -602,6 +630,64 @@ then add it in Steam → Settings → Storage. For Steam to find the library
 at every login, have Plasma mount it: System Settings → Disks & Devices
 → Device Auto-Mount, tick it under **Login**. The internal SSD's 512 GB
 fill up fast with games; `filelight` shows what's using the space.
+
+## Hardware notes
+
+What's specific to this laptop, beyond the [NVIDIA GPU](#nvidia-graphics)
+and [Gaming](#gaming):
+
+- **CPU:** the i7-13620H has 6 performance and 4 efficiency cores. The
+  kernel's scheduler puts busy threads on the performance cores first
+  (from the core rankings the firmware reports), power-profiles-daemon sets how eagerly they boost (power
+  saver on battery, balanced on AC), and thermald follows the laptop's own
+  thermal tables, the ones Windows uses. `sensors` shows the core and SSD
+  temperatures.
+- **Acer's performance modes and fans** (NitroSense on Windows): Linux's
+  `acer-wmi` driver supports them only on the models it lists, and this
+  one isn't listed, so the fans follow the laptop's default mode and
+  there's no Performance mode with higher power limits. It can be forced
+  on, which often works since Nitro and Predator laptops share Acer's
+  interface: uncomment `boot.kernelParams = [ "acer_wmi.predator_v4=1" ];`
+  in `modules/hardware.nix`, rebuild and reboot. If
+  `cat /sys/firmware/acpi/platform_profile_choices` then lists modes, the
+  battery icon's power profiles switch Acer's modes (Performance for
+  games), and `sensors` shows the fan speeds. If anything misbehaves,
+  comment it out again or boot the previous version. The keyboard's RGB
+  lighting and Acer's battery charge limit have no Linux support either.
+- **Thunderbolt:** if the USB-C port is Thunderbolt, a dock or drive asks
+  to be authorized in System Settings → Thunderbolt (boltd).
+- **Wi-Fi:** which card the laptop has isn't known yet:
+  `lspci -k | grep -iA3 network` shows it. Intel and MediaTek cards need
+  nothing. If it's a **Realtek** card (rtw89, e.g. RTL8852BE) and Wi-Fi
+  drops or is slow, turn off its power saving by adding this to
+  `modules/hardware.nix` and rebuilding:
+
+  ```nix
+  boot.extraModprobeConfig = ''
+    options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
+    options rtw89_core disable_ps_mode=y
+  '';
+  ```
+- **Screen flicker** (rare, on some laptop panels with Intel graphics):
+  add `boot.kernelParams = [ "i915.enable_psr=0" ];` to
+  `modules/hardware.nix`. It turns off Panel Self Refresh, at a small cost
+  in battery life.
+- **Suspend:** laptops of this generation usually only have "modern
+  standby" (`cat /sys/power/mem_sleep` shows `[s2idle]`), which uses a
+  little more battery while asleep than older laptops' deep sleep. If the
+  battery drops more than a few percent overnight, check that the RTX 4060
+  powers off (hardware checklist) before anything else.
+- **Games on an external display:** the HDMI port is most likely wired to
+  the RTX 4060, and the desktop is drawn by the Intel GPU, so frames for
+  that screen are copied between the GPUs. Most games run fine; if one
+  stutters only on the external screen, try it on the built-in one.
+- **Sound:** the speakers and microphone use Intel's SOF audio firmware,
+  which is included. For an equalizer (Windows had SteelSeries Sonar),
+  open **EasyEffects**. A SteelSeries headset works as a normal USB or
+  Bluetooth headset; its battery level and sidetone settings need
+  HeadsetControl, which isn't installed (it needs its device rules too:
+  `services.udev.packages` and `environment.systemPackages` both with
+  `pkgs.headsetcontrol`).
 
 ## Hardware checklist
 
@@ -627,7 +713,9 @@ or graphics (an NVIDIA driver update included). It takes about 15 minutes.
 - [ ] **The RTX 4060 powers off:** with Steam closed, after a minute
       `cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status` says
       `suspended` (`nvidia-smi` itself wakes the GPU, so don't run it
-      just before).
+      just before). If it stays `active`, try
+      `sudo systemctl stop nvidia-powerd` and check again: if that fixes
+      it, set `dynamicBoost.enable = false` in `modules/nvidia.nix`.
 - [ ] **External display:** HDMI or USB-C shows a picture and can be
       arranged in System Settings → Display Configuration.
 - [ ] **Video decoding on the GPU:** a 4K YouTube video plays smoothly in
@@ -640,7 +728,11 @@ or graphics (an NVIDIA driver update included). It takes about 15 minutes.
       have no Linux support in this config.)
 - [ ] **Steam:** a game starts (with Proton for a Windows game), and
       `steam-hud` shows the MangoHud overlay, naming the **RTX 4060** at
-      its top.
+      its top. While a Windows game runs,
+      `ls -l /proc/*/fd 2>/dev/null | grep -c ntsync` prints more than 0
+      (Proton is using NTSYNC).
+- [ ] **Temperatures:** `sensors` lists the CPU cores; under a game they
+      stay below about 95 °C (the CPU's limit is 100 °C).
 - [ ] **Printing:** the network printer appears on its own.
 - [ ] **External drives:** the WD and Toshiba USB drives (formatted on
       Windows) open in Dolphin and take a new file.
@@ -820,8 +912,8 @@ HEAD` (or `git checkout <commit> -- home/austin/nvim/lazy-lock.json`), then
    `modules/base.nix`).
 5. **Steam Remote Play** (streaming games from this laptop to a TV or
    another PC) is closed in the firewall: its ports would be open on every
-   network, public Wi-Fi included. Playing games, online play and the
-   gamescope session don't need it. To stream, set
+   network, public Wi-Fi included. Playing games and online play don't
+   need it. To stream, set
    `remotePlay.openFirewall = true` in `modules/gaming.nix` and rebuild.
 
 ## Backups
@@ -1277,8 +1369,10 @@ comments:
 - TPM-backed LUKS unlock and `kernel.dmesg_restrict` / `kptr_restrict`
   (`modules/hardware.nix`)
 - SSH + fail2ban (`modules/network.nix`)
-- `hardware.xone` for wired/dongle Xbox pads and `gamescope.capSysNice`
-  (`modules/gaming.nix`)
+- `hardware.xone` for wired/dongle Xbox pads, and gamescope for single
+  games (`modules/gaming.nix`)
+- Acer's performance modes and fan readings, `acer_wmi.predator_v4`
+  (`modules/hardware.nix`; see [Hardware notes](#hardware-notes))
 - A `nixpkgs-unstable` input for cherry-picking newer packages (`flake.nix`)
 - `trusted-users` and `warn-dirty` (`modules/base.nix`)
 
@@ -1296,4 +1390,5 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **v1** | jojo's first version: a copy of the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload with fine-grained power management and Dynamic Boost; Steam and its games run on it; "Run using dedicated graphics card" in the app menu and `nvidia-offload`. Installed fresh on 26.05 (stateVersion 26.05). README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, and an updated hardware checklist. |
+| **v2** | Tuned for the hardware: NTSYNC for Proton (module loaded, `/dev/ntsync` readable), split-lock throttling off as on SteamOS, no Steam gamescope session (unreliable with hybrid graphics), Thunderbolt authorization (boltd), `sensors`, and EasyEffects for sound. Acer's performance modes are ready to try (`acer_wmi.predator_v4`, commented out). Fix from shitbox v65: the update reminder reads the date from `nixos-version`. README: Hardware notes (Wi-Fi by card, screen flicker, suspend, external displays), GameMode's core pinning, more checklist items. The boot test checks NTSYNC. |
+| v1 | jojo's first version: a copy of the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload with fine-grained power management and Dynamic Boost; Steam and its games run on it; "Run using dedicated graphics card" in the app menu and `nvidia-offload`. Installed fresh on 26.05 (stateVersion 26.05). README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, and an updated hardware checklist. |

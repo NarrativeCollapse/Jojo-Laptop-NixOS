@@ -104,6 +104,9 @@ in
       "io.github.kolunmi.Bazaar" # Flathub app store (as on Bazzite/Bluefin)
       "org.telegram.desktop" # Telegram
       "com.rtosta.zapzap" # ZapZap: WhatsApp (an unofficial desktop client)
+      # EasyEffects: equalizer and effects for the speakers, headphones and
+      # microphone, through PipeWire (what SteelSeries Sonar did on Windows).
+      "com.github.wwmm.easyeffects"
     ];
     # Leave apps installed by hand (Bazaar, `flatpak install`) alone. Set to
     # true once everything you want is listed above to make this list the

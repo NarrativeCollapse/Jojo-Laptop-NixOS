@@ -141,8 +141,10 @@ in
     ];
     script = ''
       # The packages' date is in the system's version: 26.05.20260926.5e2305d
-      # is nixpkgs as it was on 26 September 2026.
-      packages_date() { cut -d. -f3 "$1/nixos-version" 2>/dev/null || true; }
+      # is nixpkgs as it was on 26 September 2026. Each system's own
+      # nixos-version command says it (its nixos-version file holds the
+      # label, which can be anything).
+      packages_date() { "$1/sw/bin/nixos-version" 2>/dev/null | cut -d. -f3 || true; }
       running=$(packages_date /run/current-system)
       if [[ ! $running =~ ^[0-9]{8}$ ]]; then
         echo "Can't read the packages' date from the system version; nothing to check."

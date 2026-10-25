@@ -44,7 +44,7 @@
       system.nixos.label = lib.mkOverride 40 "${version}-test";
       # - Likewise the framework's version ("26.05test") has no date; give
       #   it the real one ("26.05.20260926.5e2305d"), which update-reminder
-      #   reads the packages' age from.
+      #   reads the packages' age from (through `nixos-version`).
       system.nixos.versionSuffix = lib.mkOverride 40 versionSuffix;
       # - Enough memory and CPU for Plasma.
       virtualisation = {
@@ -166,7 +166,7 @@
         # notification (sent when flake.lock is over two weeks old) does.
         machine.succeed(f"{user} start update-reminder.service")
         # The date is the third part of the version (26.05.20260926.5e2305d).
-        day = machine.succeed("cut -d. -f3 /run/current-system/nixos-version").strip()
+        day = machine.succeed("nixos-version | cut -d. -f3").strip()
         day = f"{day[:4]}-{day[4:6]}-{day[6:]}"
         machine.wait_until_succeeds(
             "journalctl -o cat _SYSTEMD_USER_UNIT=update-reminder.service"
@@ -220,6 +220,18 @@
             "nix-store -qR \"$(readlink -f /run/current-system/sw/bin/steam)\""
             " | grep -- '-fhsenv-profile$'"
             " | xargs grep -rqs __NV_PRIME_RENDER_OFFLOAD"
+        )
+
+    with subtest("Gaming: NTSYNC for Proton, split-lock throttling off"):
+        # /dev/ntsync exists and Proton (any user) can open it.
+        machine.succeed("test -c /dev/ntsync")
+        mode = machine.succeed("stat -c %a /dev/ntsync").strip()
+        assert mode == "644", f"/dev/ntsync mode {mode}"
+        # The VM's CPU may not offer split-lock detection, so the setting is
+        # checked only where the kernel has it.
+        machine.succeed(
+            "test ! -e /proc/sys/kernel/split_lock_mitigate"
+            " || [ \"$(cat /proc/sys/kernel/split_lock_mitigate)\" = 0 ]"
         )
 
     with subtest("sudo is sudo-rs"):
