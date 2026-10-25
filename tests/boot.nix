@@ -5,7 +5,11 @@
 #   nix build .#checks.x86_64-linux.boot -L
 # Interactively, with a window onto the VM:
 #   nix run .#checks.x86_64-linux.boot.driverInteractive
-{ modules, version }:
+{
+  modules,
+  version,
+  versionSuffix,
+}:
 
 {
   name = "jojo-boot";
@@ -38,6 +42,10 @@
       #   framework sets "test" with mkForce, so this needs a stronger
       #   priority: lower numbers win, mkForce is 50.)
       system.nixos.label = lib.mkOverride 40 "${version}-test";
+      # - Likewise the framework's version ("26.05test") has no date; give
+      #   it the real one ("26.05.20260926.5e2305d"), which update-reminder
+      #   reads the packages' age from.
+      system.nixos.versionSuffix = lib.mkOverride 40 versionSuffix;
       # - Enough memory and CPU for Plasma.
       virtualisation = {
         memorySize = 4096;
