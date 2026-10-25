@@ -19,7 +19,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: v3** (git tag `v3`). See [Versions](#versions).
+**Current version: 0.1** (git tag `0.1`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -293,7 +293,7 @@ this exact config on a fresh (or the same) laptop.
 
   ```bash
   nix build ~/nixos-config#installer-iso
-  ls result/iso/        # jojo-installer-vN.iso, about 3 GB
+  ls result/iso/        # jojo-installer-0.1.iso (its version), about 3 GB
   ```
 
 Write it to a USB stick (8 GB or more) with **ISO Image Writer** (in the
@@ -371,7 +371,7 @@ Then restore your files from the backup drive (see [Backups](#backups)).
 | Check the SSD's health | `disk-health` (sudo password) |
 | Use a CAC (one-time setup) | `cac-setup`; see [Smart cards (CAC)](#smart-cards-cac) |
 | Which commit is running? | `nixos-version --configuration-revision` |
-| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `v3-26.05…`) |
+| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `0.1-26.05…`) |
 
 `nix flake check` fails on unformatted files, statix/deadnix findings, a
 README whose "Current version" doesn't match `version` in `flake.nix`, a
@@ -431,7 +431,7 @@ changes anything.
        before the update is applied, so a failed `update` never leaves
        `flake.lock` half-changed.
 
-     After [n] or [r] it tags the commit `vN` and pushes the commit and tag
+     After [n] or [r] it tags the commit with the new version (e.g. `0.2`) and pushes the commit and tag
      to GitHub.
 
   If pushing fails (for example, no GitHub login on the laptop), the update
@@ -750,7 +750,7 @@ terminal the Nix way. Bazzite installs these tools with Homebrew
 (`ujust bazzite-cli`) and appends lines to your shell's rc file; here Home
 Manager declares all of it. Adapted from Bazzite (Apache-2.0).
 
-<img src="docs/screenshots/welcome-banner-v3.png" alt="The welcome banner in Konsole: a black-and-white NixOS logo beside the NixOS version and config version, then a table of common commands, a tip and links" width="820">
+<img src="docs/screenshots/welcome-banner-0.1.png" alt="The welcome banner in Konsole: a black-and-white NixOS logo beside the NixOS version and config version, then a table of common commands, a tip and links" width="820">
 
 <sub>Rendered from the banner script in Konsole's colors; the generation
 number is an example.</sub>
@@ -1371,10 +1371,12 @@ comments:
 
 ## Versions
 
-The version goes up by one whenever a change affects the built system
-(packages, services, Home Manager config, flake inputs). Changes to docs,
-lint config or comments alone don't bump it. Each version has a matching
-git tag (`git checkout v1` to see it), and git history has the detail.
+The version goes up by 0.1 whenever a change affects the built system
+(packages, services, Home Manager config, flake inputs): 0.1, 0.2, … 0.9,
+0.10. Changes to docs, lint config or comments alone don't bump it. Each
+version has a matching git tag (`git checkout 0.1` to see it), and git
+history has the detail. 1.0 is yours to declare, for example once jojo is
+installed and the hardware checklist passes.
 
 The version is set once, as `version` in `flake.nix`. It's added to the
 system label, so it appears in the boot menu, the welcome banner and
@@ -1383,6 +1385,4 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **v3** | Cleanup of what came over from shitbox: NVIDIA's video-decoding driver is no longer installed (the Intel GPU decodes video), and stale comments and README history are gone (the gamescope-session note, Homebrew's and Xwayland's history, the release-upgrade narrative). New welcome-banner screenshot for jojo. |
-| v2 | Tuned for the hardware: NTSYNC for Proton (module loaded, `/dev/ntsync` readable), split-lock throttling off as on SteamOS, no Steam gamescope session (unreliable with hybrid graphics), Thunderbolt authorization (boltd), `sensors`, and EasyEffects for sound. Acer's performance modes are ready to try (`acer_wmi.predator_v4`, commented out). Fix from shitbox v65: the update reminder reads the date from `nixos-version`. README: Hardware notes (Wi-Fi by card, screen flicker, suspend, external displays), GameMode's core pinning, more checklist items. The boot test checks NTSYNC. |
-| v1 | jojo's first version: a copy of the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload with fine-grained power management and Dynamic Boost; Steam and its games run on it; "Run using dedicated graphics card" in the app menu and `nvidia-offload`. Installed fresh on 26.05 (stateVersion 26.05). README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, and an updated hardware checklist. |
+| **0.1** | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |

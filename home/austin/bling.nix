@@ -6,13 +6,16 @@
 { lib, pkgs, ... }:
 
 let
-  # "v20 · generation 42 · config 1a2b3c4", shown by the MOTD and fastfetch.
-  # The version comes from system.nixos.tags, which ends up in the name of
-  # the running system (nixos-system-jojo-v20-26.05...).
+  # "0.1 · generation 42 · config 1a2b3c4", shown by the MOTD and fastfetch.
+  # The version comes from system.nixos.tags: it's the first part of the
+  # running system's label ("0.1-26.05.20260926.5e2305d"), which NixOS keeps
+  # in /run/current-system/nixos-version.
   sysinfo = pkgs.writeShellApplication {
     name = "nixos-system-info";
     text = ''
-      ver=$(readlink /run/current-system 2>/dev/null | grep -o -- '-v[0-9]\+-' | tr -d - || true)
+      label=$(cat /run/current-system/nixos-version 2>/dev/null || true)
+      ver=''${label%%-*}
+      [[ $ver =~ ^[0-9]+\.[0-9]+$ ]] || ver=""
       gen=$(readlink /nix/var/nix/profiles/system 2>/dev/null | sed -n 's/^system-\([0-9]*\)-link$/\1/p' || true)
       rev=$(nixos-version --configuration-revision 2>/dev/null || true)
       out="generation ''${gen:-?}"

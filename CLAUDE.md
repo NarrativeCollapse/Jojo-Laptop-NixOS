@@ -22,12 +22,13 @@ failing Check on main or Next release run opens a GitHub issue titled
 
 ## Versioning (keep this up to date)
 
-The config has a version number (`vN`), defined once as `version` in
-flake.nix. It becomes a system label tag, and must match the
-"**Current version: vN**" line at the top of README.md (`nix flake check`
-enforces this). Each version also gets a git tag.
+The config has a version number (`0.N`: 0.1, 0.2, … 0.10), defined once as
+`version` in flake.nix. It becomes a system label tag, and must match the
+"**Current version: 0.N**" line at the top of README.md (`nix flake check`
+enforces this). Each version also gets a git tag of the same name. Moving
+to 1.0 is the owner's call, not a bump.
 
-- Bump the version by one in the same push as any change that affects the
+- Bump the version (the number after the dot, by one) in the same push as any change that affects the
   built system: packages, services, Home Manager config, the Brewfile,
   flake inputs. (`update-system` on the laptop, and the manual Update
   flake.lock workflow, bump it themselves via
@@ -38,6 +39,6 @@ enforces this). Each version also gets a git tag.
   alone don't bump the version either. (`home/austin/neovim.nix` does.)
 - For a bump: change `version` in flake.nix, update "Current version" at the
   top of README.md, add a row at the top of its Versions table (one or two
-  sentences of highlights), and after pushing, tag the pushed commit `vN`
-  and push the tag.
+  sentences of highlights), and after pushing, tag the pushed commit with
+  the version (e.g. `0.2`) and push the tag.
 - Several commits in one push share one version.

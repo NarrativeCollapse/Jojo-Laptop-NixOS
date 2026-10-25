@@ -3,9 +3,9 @@ on the laptop and by the manual Update flake.lock workflow).
 
 Usage: bump-version.py <update.log>
 
-Increments `version` in flake.nix, updates README.md's "Current version"
-line, and adds a Versions table row naming the updated inputs. Prints the
-new version.
+Increments `version` in flake.nix (the number after the dot: 0.1 -> 0.2,
+0.9 -> 0.10), updates README.md's "Current version" line, and adds a
+Versions table row naming the updated inputs. Prints the new version.
 """
 
 import re
@@ -16,21 +16,22 @@ flake = Path("flake.nix")
 readme = Path("README.md")
 
 text = flake.read_text()
-cur = int(re.search(r'version = "v(\d+)";', text).group(1))
-new = cur + 1
-flake.write_text(text.replace(f'version = "v{cur}";', f'version = "v{new}";', 1))
+major, minor = map(int, re.search(r'version = "(\d+)\.(\d+)";', text).groups())
+cur = f"{major}.{minor}"
+new = f"{major}.{minor + 1}"
+flake.write_text(text.replace(f'version = "{cur}";', f'version = "{new}";', 1))
 
 inputs = sorted(set(re.findall(r"Updated input '([^']+)'", Path(sys.argv[1]).read_text())))
-row = f"| **v{new}** | `flake.lock` update: {', '.join(inputs) or 'inputs'}. |"
+row = f"| **{new}** | `flake.lock` update: {', '.join(inputs) or 'inputs'}. |"
 
 lines = readme.read_text().splitlines(keepends=True)
 out = []
 for line in lines:
-    if line.startswith(f"**Current version: v{cur}**"):
-        line = line.replace(f"v{cur}", f"v{new}")
-    elif line.startswith(f"| **v{cur}** |"):
+    if line.startswith(f"**Current version: {cur}**"):
+        line = line.replace(f"`{cur}`", f"`{new}`").replace(f"**Current version: {cur}**", f"**Current version: {new}**")
+    elif line.startswith(f"| **{cur}** |"):
         out.append(row + "\n")
-        line = line.replace(f"| **v{cur}** |", f"| v{cur} |", 1)
+        line = line.replace(f"| **{cur}** |", f"| {cur} |", 1)
     out.append(line)
 readme.write_text("".join(out))
-print(f"v{new}")
+print(new)
