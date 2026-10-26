@@ -25,20 +25,21 @@ failing Check on main or Next release run opens a GitHub issue titled
 The config has a version number (`0.N`: 0.1, 0.2, … 0.10), defined once as
 `version` in flake.nix. It becomes a system label tag, and must match the
 "**Current version: 0.N**" line at the top of README.md (`nix flake check`
-enforces this). Each version also gets a git tag of the same name. Moving
-to 1.0 is the owner's call, not a bump.
+enforces this). Each version also gets a git tag of the same name, made by
+the Tag versions workflow (`tag.yml`, `scripts/tag-versions.sh`) once it
+reaches main: don't tag by hand. Moving to 1.0 is the owner's call, not a
+bump.
 
 - Bump the version (the number after the dot, by one) in the same push as any change that affects the
   built system: packages, services, Home Manager config, the Brewfile,
   flake inputs. (`update-system` on the laptop, and the manual Update
   flake.lock workflow, bump it themselves via
-  `scripts/bump-version.py`; `update-system` also tags and pushes.)
+  `scripts/bump-version.py`; `update-system` also pushes.)
 - Don't bump for docs, comments, CI, or lint config alone.
 - `home/austin/nvim/` (the LazyVim config and its `lazy-lock.json`) is read
   from the checkout at run time, not built into the system: changes there
   alone don't bump the version either. (`home/austin/neovim.nix` does.)
 - For a bump: change `version` in flake.nix, update "Current version" at the
   top of README.md, add a row at the top of its Versions table (one or two
-  sentences of highlights), and after pushing, tag the pushed commit with
-  the version (e.g. `0.2`) and push the tag.
+  sentences of highlights).
 - Several commits in one push share one version.

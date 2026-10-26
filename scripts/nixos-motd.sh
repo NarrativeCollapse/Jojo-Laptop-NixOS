@@ -1,6 +1,6 @@
 # nixos-motd: the welcome banner shown in new shells.
 # Built by home/austin/bling.nix, which sets MOTD_TIPS, MOTD_TEMPLATE,
-# MOTD_LOGO and PATH.
+# MOTD_LOGO, CONFIG_FLAKE and PATH.
 
 if [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/no-show-user-motd" ]; then
   exit 0
@@ -48,4 +48,13 @@ if [ -t 1 ]; then
   CLICOLOR_FORCE=1 glow -s dark -w "$(tput cols 2>/dev/null || echo 80)" - <<< "$rendered" 2>/dev/null | cat
 else
   glow -s notty - <<< "$rendered"
+fi
+
+# Config commits that exist only on this laptop (the installer's hardware
+# configuration, say) are lost with the laptop until they're pushed. Only
+# local refs are compared, so this needs no network and adds no delay.
+ahead=$(git -C "$CONFIG_FLAKE" rev-list --count '@{upstream}..HEAD' 2>/dev/null || true)
+if [ -n "$ahead" ] && [ "$ahead" -gt 0 ]; then
+  echo "  $ahead commit(s) in $CONFIG_FLAKE aren't on GitHub yet: cd $CONFIG_FLAKE && git push"
+  echo
 fi

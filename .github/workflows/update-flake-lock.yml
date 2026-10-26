@@ -58,7 +58,7 @@ jobs:
             grep -E "Updated input|→|'github:" update.log
             echo '```'
             echo
-            echo "After merging: \`git pull && rebuild\` on the laptop, and tag the merge commit ${{ steps.bump.outputs.version }}."
+            echo "After merging: \`git pull && rebuild\` on the laptop. The Tag versions workflow tags ${{ steps.bump.outputs.version }}."
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 

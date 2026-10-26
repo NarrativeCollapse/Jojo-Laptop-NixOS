@@ -121,12 +121,27 @@ in
   # the ones Windows uses.
   services.thermald.enable = true;
 
-  # Driver options to try on this laptop, one per problem: remove the `#`
-  # in front of an `options` line, then rebuild and reboot. (Comments
-  # inside this text are modprobe's own, so editing it can't break the
-  # build. The file also reaches the initrd, where i915 loads.) If one
-  # makes things worse, put the `#` back or boot the previous version.
+  # Battery charge limit: charging stops at 80%, as Acer Care Center's
+  # setting does on Windows (a battery kept full on the charger, as a gaming
+  # laptop often is, loses capacity years sooner). It's Acer's own "battery
+  # health mode", reached through the acer-wmi-battery driver (prebuilt in
+  # NixOS's cache; the Nitro V 15 ANV15-51 is on its list of laptops it
+  # works on), which turns it on when it loads, at every boot. To charge to
+  # 100% once, until the next boot:
+  #   echo 0 | sudo tee /sys/bus/wmi/drivers/acer-wmi-battery/health_mode
+  # For good: change enable_health_mode=1 to 0 below.
+  boot.extraModulePackages = [ config.boot.kernelPackages.acer-wmi-battery ];
+  boot.kernelModules = [ "acer-wmi-battery" ];
+
+  # The battery limit's setting (the line without a `#`), then driver
+  # options to try on this laptop, one per problem: remove the `#` in front
+  # of an `options` line, then rebuild and reboot. (Comments inside this
+  # text are modprobe's own, so editing it can't break the build. The file
+  # also reaches the initrd, where i915 loads.) If one makes things worse,
+  # put the `#` back or boot the previous version.
   boot.extraModprobeConfig = ''
+    options acer-wmi-battery enable_health_mode=1
+
     # Acer's performance modes and fan readings (what NitroSense does on
     # Windows). acer-wmi has them but turns them on only for the models it
     # lists (some Predators and the Nitro AN515-58), not this one; forcing
@@ -177,6 +192,31 @@ in
     # `lspci`: the PCI devices and their drivers (which GPU is where, which
     # Wi-Fi card); NixOS doesn't install it by default.
     pkgs.pciutils
+    # `hardware-check`: the hardware checklist's checks that a script can do
+    # (README.md), with a report to share when asking for help.
+    (pkgs.writeShellApplication {
+      name = "hardware-check";
+      runtimeInputs = with pkgs; [
+        coreutils
+        gawk
+        gnugrep
+        gnused
+        kdePackages.libkscreen # kscreen-doctor
+        lm_sensors
+        networkmanager # nmcli
+        pciutils
+        power-profiles-daemon # powerprofilesctl
+        systemd
+        wireplumber # wpctl
+      ];
+      runtimeEnv = {
+        HOST = config.networking.hostName;
+        # The GPU addresses the config gives the NVIDIA driver
+        # (modules/nvidia.nix), to compare with the real ones.
+        NVIDIA_BUS_IDS = "${config.hardware.nvidia.prime.intelBusId} ${config.hardware.nvidia.prime.nvidiaBusId}";
+      };
+      text = builtins.readFile ../scripts/hardware-check.sh;
+    })
     (pkgs.writeShellApplication {
       name = "disk-health";
       text = ''

@@ -74,8 +74,9 @@
 
   # Not checked, because a VM can't have them: smartd (virtual disks report
   # no SMART data), Bluetooth, Wi-Fi, thermald, firmware updates, the NVIDIA
-  # GPU itself (its services fail in the VM: nothing to drive), Flatpak
-  # downloads and anything else that needs the internet.
+  # GPU itself (its services fail in the VM: nothing to drive), Acer's
+  # battery interface, Flatpak downloads and anything else that needs the
+  # internet.
   testScript = ''
     start_all()
 
@@ -123,7 +124,7 @@
         machine.succeed(
             "su - austin -c 'command -v update update-system update-flatpak"
             " update-firmware update-rollback update-neovim backup-setup"
-            " backup-test brew-update disk-health nixos-motd toggle-motd"
+            " backup-test brew-update disk-health hardware-check nixos-motd toggle-motd"
             " boxbuddy-rs'"
         )
         # The standalone CLI tools come from Nix (bling.nix; sensors and
@@ -230,6 +231,12 @@
             " | xargs grep -rqs __NV_PRIME_RENDER_OFFLOAD"
         )
 
+    with subtest("Acer battery charge limit: driver installed, turned on at load"):
+        # Acer's battery interface isn't in the VM, so check the driver
+        # and its option, not the limit itself.
+        machine.succeed("modinfo -F parm acer_wmi_battery | grep -q enable_health_mode")
+        machine.succeed("grep -qx 'options acer-wmi-battery enable_health_mode=1' /etc/modprobe.d/nixos.conf")
+
     with subtest("Gaming: NTSYNC for Proton, split-lock throttling off"):
         # /dev/ntsync exists and Proton (any user) can open it.
         machine.succeed("test -c /dev/ntsync")
@@ -241,6 +248,13 @@
             "test ! -e /proc/sys/kernel/split_lock_mitigate"
             " || [ \"$(cat /proc/sys/kernel/split_lock_mitigate)\" = 0 ]"
         )
+
+    with subtest("hardware-check runs and writes its report"):
+        # The VM has little real hardware, so only that it gets through and
+        # finds what the VM does have (NTSYNC, no failed checks crash it).
+        out = machine.succeed("su - austin -c hardware-check")
+        assert "NTSYNC is available to Proton" in out, out
+        machine.succeed("su - austin -c 'test -s ~/hardware-report-jojo-*.txt'")
 
     with subtest("sudo is sudo-rs"):
         sudo_version = machine.succeed("sudo --version")
@@ -260,6 +274,22 @@
         wrapper = machine.succeed("su - austin -c 'cat \"$(command -v nvim)\"'")
         for tool in ["tree-sitter", "gcc", "nil", "lazygit"]:
             assert tool in wrapper, f"{tool} missing from nvim's PATH: {wrapper}"
+
+    with subtest("The banner reminds about config commits not on GitHub yet"):
+        # A checkout one commit ahead of its upstream, where ~/nixos-config
+        # would be (removed again afterwards).
+        machine.succeed(
+            "su - austin -c '"
+            "git init -q --bare /tmp/origin.git"
+            " && git clone -q /tmp/origin.git ~/nixos-config"
+            " && cd ~/nixos-config"
+            " && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m one"
+            " && git push -q -u origin HEAD"
+            " && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m two'"
+        )
+        motd = machine.succeed("su - austin -c nixos-motd")
+        assert "1 commit(s) in /home/austin/nixos-config aren't on GitHub yet" in motd, motd
+        machine.succeed("rm -rf /home/austin/nixos-config /tmp/origin.git")
 
     # Anything else that failed in the VM, for the log (not a test failure:
     # see the list above).

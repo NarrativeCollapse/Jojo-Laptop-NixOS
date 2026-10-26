@@ -7,9 +7,10 @@ Acer gaming laptop running Plasma 6:
 | --- | --- | --- |
 | CPU | Intel Core i7-13620H (Raptor Lake, 6 performance + 4 efficiency cores) | Intel microcode updates, thermald, power profiles |
 | Graphics | Intel UHD Graphics and an NVIDIA GeForce RTX 4060 Laptop GPU (8 GB) | The Intel GPU runs the desktop; the RTX 4060 runs Steam and games and powers off otherwise (see [NVIDIA graphics](#nvidia-graphics)) |
-| Screen | 1920×1080, 144 Hz | Plasma normally picks 144 Hz by itself (a [hardware checklist](#hardware-checklist) item) |
+| Screen | 1920×1080, 144 Hz | Plasma normally picks 144 Hz by itself (`hardware-check` says) |
 | Memory | 16 GB | zram swap (compressed in RAM) and oomd |
 | SSD | 512 GB NVMe (WD PC SN740) | Erased by the installer and encrypted (LUKS2), TRIM passed through |
+| Battery | | Charging stops at 80% (see [Battery charge limit](#battery-charge-limit)) |
 | USB drives | WD My Passport 2 TB, WD Game Drive 4 TB SSD, Toshiba 1 TB | Mount as they are (NTFS or exFAT); see [Gaming](#gaming) for Steam games on them |
 | Board | Acer "RPL Sportage_RTH" | BIOS settings for the install in [Before you install](#before-you-install) |
 
@@ -19,7 +20,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.2** (git tag `0.2`). See [Versions](#versions).
+**Current version: 0.3** (git tag `0.3`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -41,8 +42,8 @@ taskbar icons, tray and exact layout may differ.</sub>
 2. **Set up backups once:** `backup-setup` (with the USB backup drive
    plugged in), then `backup-test`. Until then nothing is backed up. After
    that, plugging in the drive is all it takes. See [Backups](#backups).
-3. **Check the hardware:** go through the
-   [hardware checklist](#hardware-checklist) (10 minutes).
+3. **Check the hardware:** run `hardware-check`, then go through the
+   [hardware checklist](#hardware-checklist) (15 minutes).
 4. **Day to day:** `update` checks for updates and asks before applying
    anything; after editing the config, `rebuild`. If an update breaks
    something, pick the previous version in the boot menu, or run
@@ -82,7 +83,10 @@ Everything below is reference: read the part you need.
   video decodes on the GPU. The NVIDIA RTX 4060 runs NVIDIA's open kernel
   driver as PRIME render offload: the Intel GPU drives the desktop and the
   RTX 4060 is powered off until something runs on it (see
-  [NVIDIA graphics](#nvidia-graphics)). Closing the lid suspends on battery and does
+  [NVIDIA graphics](#nvidia-graphics)). Charging stops at 80%, to keep
+  the battery healthy (see [Battery charge limit](#battery-charge-limit)),
+  and `hardware-check` runs the [hardware checklist](#hardware-checklist)'s
+  checks that a script can do. Closing the lid suspends on battery and does
   nothing on AC. A Memtest86+ entry at the bottom of the boot menu tests
   the RAM, the first suspect when crashes look random. External drives
   formatted NTFS (Windows) or exFAT (cameras, phones, most flash drives)
@@ -137,12 +141,13 @@ isn't in the table, nothing covers it yet.
 | A bad update | Updates only when you choose, with a preview; the last 10 versions stay in the boot menu to go back to; CI builds and boot-tests every change first, and a failure opens a GitHub issue | [Updates](#updates), [CI](#ci) |
 | Falling behind on security fixes | A notification once the running system's packages are more than 14 days old | [Updates](#updates) |
 | The system breaking with no update (crash, full disk) | oomd closes a runaway app before the desktop freezes; Nix frees store space when the disk runs low; capped journal; Memtest86+ for suspect RAM | `modules/hardware.nix`, `modules/base.nix` |
+| A battery worn out early (a gaming laptop often lives on the charger) | Charging stops at 80% | [Battery charge limit](#battery-charge-limit) |
 | A tampered or changed package | Every input pinned in `flake.lock` by hash; packages come from the signed NixOS binary cache | `flake.lock` |
 | Hostile Wi-Fi | Firewall with only mDNS open; ICMP redirects and source routing ignored; Mullvad VPN | `modules/network.nix` |
 | Tracking while browsing | LibreWolf (privacy-hardened Firefox) as the default browser; Mullvad hides your IP | `modules/desktop.nix` |
 | A malicious or buggy app | Flatpak apps run sandboxed (Flatseal to tighten them); `sudo` is sudo-rs (memory-safe) | [Flatpak apps](#flatpak-apps) |
 | Firmware vulnerabilities | fwupd installs BIOS and device firmware from the LVFS, when the vendor publishes it (Acer rarely does: update the BIOS from Windows before installing) | `update` [w], [Before you install](#before-you-install) |
-| Forgetting what changed | The config is in git: every system version is a commit and a tag | [Versions](#versions) |
+| Forgetting what changed | The config is in git: every system version is a commit and a tag; the welcome banner says when the laptop has commits GitHub doesn't | [Versions](#versions) |
 
 **Not covered:** a second, off-site copy of the backups (a fire or burglary
 can take the laptop and the USB drive together), Secure Boot (someone with
@@ -165,6 +170,7 @@ docs/screenshots/                images used in this README
   check.yml                      CI: nix flake check (incl. VM boot test), no evaluation
                                  warnings, full system build
   next-release.yml               the same checks against the next NixOS release (weekly)
+  tag.yml                        CI: tags each new version (0.3, 0.4, …)
   iso.yml                        test-builds the installer ISO (run by hand)
   update-flake-lock.yml          flake.lock update pull request (run by hand)
 hosts/jojo/
@@ -175,8 +181,9 @@ hosts/installer/
   configuration.nix              the installer ISO: live Plasma + `install-jojo`
 modules/
   base.nix                       nix settings, nh + GC, locale, unfree packages option
-  hardware.nix                   boot, Plymouth splash, zram + oomd, power, lid, firmware,
-                                 disk health, graphics, Bluetooth
+  hardware.nix                   boot, Plymouth splash, zram + oomd, power, battery limit,
+                                 lid, driver options, firmware, disk health, graphics,
+                                 Bluetooth, `hardware-check`
   network.nix                    NetworkManager, resolved, Mullvad, mDNS, firewall,
                                  network hardening
   desktop.nix                    Plasma 6/SDDM, wallpapers, apps (KDE + LibreWolf),
@@ -205,12 +212,14 @@ scripts/                         the longer shell scripts, as plain bash (see be
   backup-setup.sh, backup-test.sh
   cac-setup.sh                   imports the DoD certificates into LibreWolf
   brew-update.sh                 [b] Homebrew
-  install-jojo.sh             the installer ISO's installer
+  install-jojo.sh                the installer ISO's installer
+  hardware-check.sh              `hardware-check`
   nixos-motd.sh                  the welcome banner
   lib/confirm.sh                 the shared yes/no prompt
   bump-version.py                version bump used by `update` and the update workflow
   check-eval-warnings.sh         CI: fail if evaluating the system prints a warning
   next-release.sh                CI: which branches "the next NixOS release" means now
+  tag-versions.sh                CI: tags the commit that set each version
 ```
 
 **Where things go.** Each module covers one topic, and anything tied to a
@@ -352,7 +361,8 @@ git commit -am "hosts/jojo: hardware configuration after reinstall"
 rebuild
 ```
 
-Pushing (`git push`) needs a GitHub login on the laptop:
+Pushing (`git push`) needs a GitHub login on the laptop (until it's done,
+the welcome banner says how many commits aren't on GitHub yet):
 `, gh auth login` then `, gh auth setup-git` (the `,` runs the GitHub CLI
 without installing it).
 
@@ -374,9 +384,11 @@ Then restore your files from the backup drive (see [Backups](#backups)).
 | Run a game with Proton-GE | In Steam: right-click the game → Properties → Compatibility → tick "Force the use of…" → pick **GE-Proton** |
 | See boot messages behind the splash | Press **Esc** during boot |
 | Check the SSD's health | `disk-health` (sudo password) |
+| Check the hardware (GPUs, screen, battery, sleep, Wi-Fi, sound, failed services) | `hardware-check`, in Plasma with Steam closed (see [Hardware checklist](#hardware-checklist)) |
+| Charge to 100% once (for a trip) | `echo 0 \| sudo tee /sys/bus/wmi/drivers/acer-wmi-battery/health_mode` (back to 80% at the next boot) |
 | Use a CAC (one-time setup) | `cac-setup`; see [Smart cards (CAC)](#smart-cards-cac) |
 | Which commit is running? | `nixos-version --configuration-revision` |
-| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `0.1-26.05…`) |
+| Which config version is running? | Shown in the welcome banner, `fastfetch`, and the boot menu entry (e.g. `0.3-26.05…`) |
 
 `nix flake check` fails on unformatted files, statix/deadnix findings, a
 README whose "Current version" doesn't match `version` in `flake.nix`, a
@@ -389,11 +401,13 @@ QEMU VM and checks that it reaches the desktop: NetworkManager, DNS,
 Mullvad, mDNS, oomd, the backup timer and Home Manager are running,
 Plasma logs in for austin, the taskbar script has run, the Plasma settings
 (Magic Lamp, power profiles) are written, the update reminder reads the
-packages' date, and `update`, `nixos-motd` and the other commands work,
-with the right version label.
+packages' date, and `update`, `nixos-motd`, `hardware-check` and the
+other commands work, with the right version label, and the welcome banner
+points out config commits that aren't on GitHub.
 It checks that the NVIDIA driver is built for the running kernel and
 that Steam starts on it (the VM has no NVIDIA GPU, so the driver itself
-can't run there). It also plugs in a blank virtual disk as the backup drive and checks that
+can't run there), and that the battery charge limit's driver is installed
+and set to turn it on (the VM has no Acer battery either). It also plugs in a blank virtual disk as the backup drive and checks that
 a real backup of `/home/austin` runs by itself, and formats another as NTFS
 and exFAT and writes to each. Only the VM's differences are overridden (no
 encrypted disk, automatic login, 4 GB of memory, the two blank disks). Things a VM can't have aren't tested: Wi-Fi,
@@ -438,11 +452,12 @@ changes anything.
        before the update is applied, so a failed `update` never leaves
        `flake.lock` half-changed.
 
-     After [n] or [r] it tags the commit with the new version (e.g. `0.2`) and pushes the commit and tag
-     to GitHub.
+     After [n] or [r] it pushes the commit to GitHub, where the
+     [Tag versions](#ci) workflow tags it with the new version.
 
   If pushing fails (for example, no GitHub login on the laptop), the update
-  is still applied, and it prints the two commands to push later.
+  is still applied, it prints the command to push later, and the welcome
+  banner reminds you until it's pushed.
 
   plasma-manager is the one input `update` doesn't move: it's pinned to a
   commit (see [Plasma settings](#plasma-settings)).
@@ -667,11 +682,11 @@ and [Gaming](#gaming):
   battery icon's power profiles switch Acer's modes (Performance for
   games), and `sensors` shows the fan speeds. If anything misbehaves, put
   the `#` back or boot the previous version. The keyboard's RGB
-  lighting and Acer's battery charge limit have no Linux support either.
+  lighting has no Linux support either.
 - **Thunderbolt:** if the USB-C port is Thunderbolt, a dock or drive asks
   to be authorized in System Settings → Thunderbolt (boltd).
-- **Wi-Fi:** which card the laptop has isn't known yet:
-  `lspci -k | grep -iA3 network` shows it. Intel and MediaTek cards need
+- **Wi-Fi:** which card the laptop has isn't known yet: `hardware-check`
+  names it. Intel and MediaTek cards need
   nothing. If it's a **Realtek** card (rtw89, e.g. RTL8852BE) and Wi-Fi
   drops or is slow, turn off its power saving: in `modules/hardware.nix`,
   remove the `#` in front of the two `options rtw89_…` lines, rebuild and
@@ -681,10 +696,10 @@ and [Gaming](#gaming):
   `options i915 enable_psr=0`, rebuild and reboot. It turns off Panel
   Self Refresh, at a small cost in battery life.
 - **Suspend:** laptops of this generation usually only have "modern
-  standby" (`cat /sys/power/mem_sleep` shows `[s2idle]`), which uses a
-  little more battery while asleep than older laptops' deep sleep. If the
-  battery drops more than a few percent overnight, check that the RTX 4060
-  powers off (hardware checklist) before anything else.
+  standby" (`hardware-check` shows `[s2idle]`), which uses a little more
+  battery while asleep than older laptops' deep sleep. If the battery
+  drops more than a few percent overnight, check that the RTX 4060 powers
+  off (`hardware-check` again) before anything else.
 - **Games on an external display:** the HDMI port is most likely wired to
   the RTX 4060, and the desktop is drawn by the Intel GPU, so frames for
   that screen are copied between the GPUs. Most games run fine; if one
@@ -697,12 +712,38 @@ and [Gaming](#gaming):
   `services.udev.packages` and `environment.systemPackages` both with
   `pkgs.headsetcontrol`).
 
+## Battery charge limit
+
+In `modules/hardware.nix`. Charging stops at 80%, as Acer Care Center's
+battery charge limit does on Windows: a battery kept at 100% on the
+charger, as a gaming laptop usually is, loses capacity years sooner. It's
+Acer's own "battery health mode", reached through a small extra driver
+(acer-wmi-battery, prebuilt in NixOS's cache), which turns it on at every
+boot. The Nitro V 15 ANV15-51, most likely this laptop, is on the driver's
+list of laptops it works on; `hardware-check` says whether it's on, and if
+the driver didn't start, how to find out why.
+
+- **Charge to 100% once**, for a trip (until the next boot):
+  `echo 0 | sudo tee /sys/bus/wmi/drivers/acer-wmi-battery/health_mode`
+- **Turn the limit off for good:** in `modules/hardware.nix`, change
+  `enable_health_mode=1` to `0`, then rebuild.
+
 ## Hardware checklist
 
 CI boots the config in a virtual machine, which has no Wi-Fi, Bluetooth,
 camera, battery or real GPU. Run through this on the laptop after
 installing, after a release upgrade, and when an update touches the kernel
 or graphics (an NVIDIA driver update included). It takes about 15 minutes.
+
+Start with **`hardware-check`** in a terminal in Plasma, with Steam closed
+and no HDMI display connected. It checks what a script can (the GPUs and
+their addresses in `modules/nvidia.nix`, whether the RTX 4060 powers off,
+the screen's refresh rate, sleep, the battery's health and charge limit,
+Acer's power modes, the Wi-Fi card, Bluetooth, sound, NTSYNC, failed
+services), prints each as OK, CHECK (worth a look) or INFO, and saves a
+report with the details to `~/hardware-report-jojo-<date>.txt`, to share
+when asking for help. It holds no passwords, serial numbers or network
+names. Then, by hand (`hardware-check` covers some items already):
 
 - [ ] **Wi-Fi:** connects, and reconnects after suspend.
 - [ ] **Suspend and resume:** close the lid on battery, open it: the lock
@@ -712,18 +753,19 @@ or graphics (an NVIDIA driver update included). It takes about 15 minutes.
 - [ ] **Sound:** speakers, headphone jack, and the volume keys.
 - [ ] **Webcam and microphone:** test in Chrome (for example a video call
       test page).
-- [ ] **144 Hz:** System Settings → Display Configuration shows the
-      built-in screen at 1920×1080, **144 Hz**.
-- [ ] **NVIDIA GPU:** `nvidia-smi` lists the **NVIDIA GeForce RTX 4060
-      Laptop GPU**. `lspci | grep -E 'VGA|3D'` shows the Intel GPU at
-      `00:02.0` and the NVIDIA one at `01:00.0`; if not, put the numbers
-      in `modules/nvidia.nix` (converted to decimal, as its comment says).
-- [ ] **The RTX 4060 powers off:** with Steam closed, after a minute
-      `cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status` says
-      `suspended` (`nvidia-smi` itself wakes the GPU, so don't run it
-      just before). If it stays `active`, try
+- [ ] **144 Hz:** `hardware-check` says the screen runs at its highest
+      refresh rate (or System Settings → Display Configuration shows the
+      built-in screen at 1920×1080, **144 Hz**).
+- [ ] **NVIDIA GPU:** `hardware-check` says both GPU addresses in
+      `modules/nvidia.nix` are right (if not, it prints the real ones to
+      put there), and `nvidia-smi` lists the **NVIDIA GeForce RTX 4060
+      Laptop GPU**.
+- [ ] **The RTX 4060 powers off:** `hardware-check` says it's powered off
+      while nothing uses it. If it stays on, try
       `sudo systemctl stop nvidia-powerd` and check again: if that fixes
       it, set `dynamicBoost.enable = false` in `modules/nvidia.nix`.
+- [ ] **Battery charge limit:** `hardware-check` says it's on, and on the
+      charger the battery stops at 80%.
 - [ ] **External display:** HDMI or USB-C shows a picture and can be
       arranged in System Settings → Display Configuration.
 - [ ] **Video decoding on the GPU:** a 4K YouTube video plays smoothly in
@@ -1310,7 +1352,7 @@ the full report any time.
 
 ## CI
 
-Four GitHub Actions workflows live in `.github/workflows/`:
+Five GitHub Actions workflows live in `.github/workflows/`:
 
 - **Check** (every push to `main` and every pull request): runs
   `nix flake check`, which includes booting the system in a VM (the boot
@@ -1324,6 +1366,10 @@ Four GitHub Actions workflows live in `.github/workflows/`:
   the next NixOS release (26.11's branches once they exist, unstable until
   then), without touching `flake.lock`; see
   [Release upgrade](#release-upgrade). A failure there blocks nothing.
+- **Tag versions** (every push to `main` that changes `flake.nix`): tags
+  the first commit that set each new version (`0.3`), so `git checkout
+  0.3` shows that version. Tags already there are left alone
+  (`scripts/tag-versions.sh`); its first run also tagged 0.1 and 0.2.
 - **Build installer ISO** (only when run by hand from the Actions tab):
   builds the installer ISO and offers it as a download on the run's page
   for 7 days (see [Reinstalling](#reinstalling-the-installer-iso)).
@@ -1333,15 +1379,15 @@ Four GitHub Actions workflows live in `.github/workflows/`:
   (flake.nix, the "Current version" line and a Versions row, via
   `scripts/bump-version.py`), checks and builds the result, and
   only then opens a pull request listing what changed. After merging it,
-  run `git pull && rebuild` on the laptop and tag the merge commit. No
-  updates, no pull request. The pull request's own Check run
+  run `git pull && rebuild` on the laptop; Tag versions tags the merge.
+  No updates, no pull request. The pull request's own Check run
   shows "action required": GitHub holds workflow runs on pull requests the
   Actions bot opens until you click **Approve and run**. That's optional,
   since the same check and build already passed before the PR was opened.
 
 **Failures open an issue.** When Check fails on `main`, or Next NixOS
-release fails, the workflow opens a GitHub issue ("Check is failing",
-"Next NixOS release is failing") that mentions you, so it reaches GitHub's
+release fails (or Tag versions), the workflow opens a GitHub issue
+("Check is failing", "Next NixOS release is failing") that mentions you, so it reaches GitHub's
 notifications and, with the default notification settings, your email.
 Each further failure adds a comment, and the issue closes itself once the
 workflow passes again. Pull requests (their own page shows the result) and
@@ -1386,7 +1432,8 @@ comments:
 The version goes up by 0.1 whenever a change affects the built system
 (packages, services, Home Manager config, flake inputs): 0.1, 0.2, … 0.9,
 0.10. Changes to docs, lint config or comments alone don't bump it. Each
-version has a matching git tag (`git checkout 0.1` to see it), and git
+version has a matching git tag (`git checkout 0.1` to see it), created by
+the [Tag versions](#ci) workflow once the version reaches GitHub, and git
 history has the detail. 1.0 is yours to declare, for example once jojo is
 installed and the hardware checklist passes.
 
@@ -1397,5 +1444,6 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.2** | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |
+| **0.3** | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
+| 0.2 | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |
 | 0.1 | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |

@@ -1,0 +1,53 @@
+name: Tag versions
+
+# Gives every config version its git tag (0.3, 0.4, ...) on the commit that
+# set it in flake.nix, after every push to main that changes flake.nix, so
+# neither the laptop nor the Update flake.lock workflow tags anything
+# itself. scripts/tag-versions.sh only adds missing tags, so its first run
+# also tagged the versions that never got one (0.1, 0.2).
+on:
+  push:
+    branches: [main]
+    paths: [flake.nix]
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the tags
+  issues: write # a failure opens an issue (.github/actions/ci-issue)
+
+# One run at a time, and never cancelled half-way: a later run tags
+# whatever an earlier one hadn't.
+concurrency:
+  group: tag-versions
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      # The whole history, to find the commit that set each version.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Tag new versions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          new=$(scripts/tag-versions.sh)
+          if [ -n "$new" ]; then
+            git push origin $(sed 's|^|refs/tags/|' <<< "$new")
+            echo "Tagged: $(echo $new)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Every version already has its tag." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Report in an issue
+        if: always()
+        uses: ./.github/actions/ci-issue
+        with:
+          status: ${{ job.status }}
+          hint: >-
+            The config versions didn't get their git tags. Nothing on the
+            laptop is affected; the next push to flake.nix (or running this
+            workflow by hand) tries again.

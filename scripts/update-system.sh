@@ -100,10 +100,11 @@ if [ "$mode" = boot ]; then
 else
   done_msg="$version is applied"
 fi
-git tag -a "$version" -m "Config $version"
-if git push --quiet && git push --quiet origin "$version"; then
-  echo "$done_msg, and pushed to GitHub with its tag."
+# GitHub tags the version (the Tag versions workflow, tag.yml).
+if git push --quiet; then
+  echo "$done_msg, and pushed to GitHub."
 else
   echo "$done_msg, but pushing failed. Later, run:"
-  echo "  cd $CONFIG_FLAKE && git push && git push origin $version"
+  echo "  cd $CONFIG_FLAKE && git push"
+  echo "(The welcome banner reminds you until it's pushed.)"
 fi

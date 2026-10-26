@@ -3,7 +3,12 @@
 # Adapted from ublue-os/bazzite (Apache-2.0), which installs the same tools
 # with Homebrew (`ujust bazzite-cli`) and appends source lines to ~/.bashrc.
 # Remove the import in home.nix to drop all of it.
-{ lib, pkgs, ... }:
+{
+  osConfig,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   # "0.1 · generation 42 · config 1a2b3c4", shown by the MOTD and fastfetch.
@@ -77,6 +82,7 @@ let
     runtimeInputs = [
       pkgs.coreutils
       pkgs.gettext
+      pkgs.git
       pkgs.glow
       pkgs.ncurses
       sysinfo
@@ -85,6 +91,8 @@ let
       MOTD_TIPS = "${tips}";
       MOTD_TEMPLATE = "${motdTemplate}";
       MOTD_LOGO = "${logo}";
+      # The config checkout, for the "not on GitHub yet" line.
+      CONFIG_FLAKE = osConfig.programs.nh.flake;
     };
     text = builtins.readFile ../../scripts/nixos-motd.sh;
   };
