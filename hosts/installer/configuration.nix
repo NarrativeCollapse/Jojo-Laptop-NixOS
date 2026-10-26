@@ -134,6 +134,8 @@ in
 
   environment.etc."jojo-config".source = "${self}";
   environment.systemPackages = [ installJojo ];
+  # For the installer test (tests/install.nix), which runs this same script.
+  system.build.installJojo = installJojo;
 
   # "Install jojo" on the live desktop, opening Konsole.
   system.activationScripts.installJojoDesktop = ''

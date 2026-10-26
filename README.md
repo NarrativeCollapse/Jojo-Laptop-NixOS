@@ -20,7 +20,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.5** (git tag `0.5`). See [Versions](#versions).
+**Current version: 0.6** (git tag `0.6`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -173,6 +173,7 @@ docs/screenshots/                images used in this README
                                  warnings, full system build
   next-release.yml               the same checks against the next NixOS release (weekly)
   tag.yml                        CI: tags each new version (0.3, 0.4, …)
+  install-test.yml               CI: installs jojo with install-jojo in VMs and boots it
   iso.yml                        test-builds the installer ISO (run by hand)
   update-flake-lock.yml          flake.lock update pull request (run by hand)
 hosts/jojo/
@@ -210,6 +211,7 @@ home/austin/neovim.nix           Neovim + the tools LazyVim needs; links ~/.conf
 home/austin/nvim/                the LazyVim config itself (~/.config/nvim), with
                                  lazy-lock.json pinning every plugin
 tests/boot.nix                   VM boot test, run by `nix flake check` and CI
+tests/install.nix                installer test: install-jojo end to end in VMs (CI)
 scripts/                         the longer shell scripts, as plain bash (see below)
   update.sh, update-system.sh    the `update` menu and its [s] System part
   update-neovim.sh               [n] Neovim plugins
@@ -334,7 +336,8 @@ Acer laptops, once it's enabled in the BIOS; see
   GitHub can't be reached during the install.
 - **Install jojo** on the desktop (or `sudo install-jojo` in Konsole).
 
-**What `install-jojo` does**, asking before anything destructive:
+**What `install-jojo` does**, asking before anything destructive (CI
+runs all of it in VMs on every push; see [CI](#ci), Installer test):
 
 1. Checks the internet connection (packages download during the install)
    and opens `nmtui` if there's none, and that the CachyOS kernel's
@@ -343,7 +346,8 @@ Acer laptops, once it's enabled in the BIOS; see
 2. Lists the disks, never including the USB stick itself. You type the disk
    to install on, then type its name again to confirm erasing it.
 3. Asks for the disk-encryption password (twice); it's asked at every boot.
-4. Erases the disk: a 1 GB EFI boot partition, and the rest LUKS2-encrypted
+4. Erases the disk: a 2 GB EFI boot partition (room for two kernels per
+   version; see [Kernel](#kernel-cachyos)), and the rest LUKS2-encrypted
    ext4, the same layout as now.
 5. Generates `hardware-configuration.nix` for the machine and puts the
    config in `/home/austin/nixos-config`: the latest from GitHub, or the
@@ -1419,7 +1423,7 @@ the full report any time.
 
 ## CI
 
-Five GitHub Actions workflows live in `.github/workflows/`:
+Six GitHub Actions workflows live in `.github/workflows/`:
 
 - **Check** (every push to `main` and every pull request): runs
   `nix flake check`, which includes booting the system in a VM (the boot
@@ -1439,6 +1443,20 @@ Five GitHub Actions workflows live in `.github/workflows/`:
   (`scripts/tag-versions.sh`). 0.1 and 0.2 have no tags: GitHub doesn't
   let a workflow tag an older commit whose workflow files differ from
   today's. Their commits are in the history (`git log --grep '(0.2)'`).
+- **Installer test** (every push to `main`, on a runner of its own; about
+  half an hour): runs `install-jojo`, the script on the installer ISO, in
+  a VM with a blank virtual disk, typing its answers on the console as you
+  would (the disk, the disk password, your login password), then boots
+  the installed disk, enters the disk password at its prompt, and checks
+  jojo comes up: the CachyOS kernel with the NixOS-kernel entry beside it,
+  your password set, `~/nixos-config` committed and yours, the login
+  screen. The VM has no internet, so the config comes from the USB
+  stick's copy (the installer's fallback) and the system installed is
+  jojo prebuilt by CI rather than built from the config the installer
+  just wrote; that config is evaluated, to check it works.
+  `tests/install.nix`; run it yourself with `nix build .#install-test -L`
+  (about 60 GB of disk). A failure means: don't install from an ISO built
+  from that commit.
 - **Build installer ISO** (only when run by hand from the Actions tab):
   builds the installer ISO and offers it as a download on the run's page
   for 7 days (see [Reinstalling](#reinstalling-the-installer-iso)).
@@ -1454,10 +1472,11 @@ Five GitHub Actions workflows live in `.github/workflows/`:
   Actions bot opens until you click **Approve and run**. That's optional,
   since the same check and build already passed before the PR was opened.
 
-**Failures open an issue.** When Check fails on `main`, or Next NixOS
-release fails (or Tag versions), the workflow opens a GitHub issue
-("Check is failing", "Next NixOS release is failing") that mentions you, so it reaches GitHub's
-notifications and, with the default notification settings, your email.
+**Failures open an issue.** When Check, the Installer test or Tag
+versions fails on `main`, or Next NixOS release fails, the workflow opens
+a GitHub issue ("Check is failing", "Next NixOS release is failing") that
+mentions you, so it reaches GitHub's notifications and, with the default
+notification settings, your email.
 Each further failure adds a comment, and the issue closes itself once the
 workflow passes again. Pull requests (their own page shows the result) and
 cancelled runs are left out. GitHub's own failure emails don't cover this:
@@ -1516,7 +1535,8 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.5** | A permanent boot-menu entry with NixOS 26.05's own kernel next to each version ("nixos-kernel"), in case a CachyOS kernel update breaks booting or its cache goes away. The installer USB no longer loads the open-source NVIDIA driver (nouveau), the usual cause of freezes and black screens on the way to the live desktop. |
+| **0.6** | The installer is tested end to end in CI (new Installer test workflow): `install-jojo` installs jojo in a VM, answered on its console, and the installed disk boots with its disk password. The installer makes the boot partition 2 GB instead of 1 GB, room for both kernels of every version in the boot menu. |
+| 0.5 | A permanent boot-menu entry with NixOS 26.05's own kernel next to each version ("nixos-kernel"), in case a CachyOS kernel update breaks booting or its cache goes away. The installer USB no longer loads the open-source NVIDIA driver (nouveau), the usual cause of freezes and black screens on the way to the live desktop. |
 | 0.4 | CachyOS's kernel instead of NixOS's own: its LTS line (6.18), compiled for x86-64-v3, prebuilt from the nix-cachyos-kernel flake's cache (new address and key since its October break-in; the old ones aren't trusted). It and NVIDIA's driver (now 595.104) come from nixos-unstable; the rest stays on 26.05. `update`, the installer and CI check that the kernel is available prebuilt before going on, rather than compile it. The battery driver now installs the way NixOS's upcoming module signing expects (the Next release check failed on it). New README section: Kernel (CachyOS). |
 | 0.3 | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
 | 0.2 | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |

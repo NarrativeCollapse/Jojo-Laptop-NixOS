@@ -1,0 +1,56 @@
+name: Installer test
+
+# Runs install-jojo, the installer ISO's script, end to end in VMs
+# (tests/install.nix): it installs jojo on a blank virtual disk, answered on
+# the console, then boots that disk with its disk password. A workflow of
+# its own because it needs a runner's disk to itself (about 60 GB) and half
+# an hour. A failure on main opens an issue (.github/actions/ci-issue).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# A newer push cancels the older run.
+concurrency:
+  group: install-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Frees disk space and installs Nix.
+      - uses: ./.github/actions/setup-nix
+
+      # The installed system, the installer VM and the virtual disk the
+      # system is copied onto need more than setup-nix frees.
+      - name: Free more disk space
+        run: |
+          sudo rm -rf /opt/hostedtoolcache /opt/microsoft /opt/google /opt/az \
+            /usr/share/swift /usr/lib/jvm /usr/local/share/powershell \
+            /usr/local/share/chromium /usr/local/.ghcup /usr/share/miniconda
+          sudo docker image prune --all --force > /dev/null || true
+          df -h /
+
+      # As in Check: the CachyOS kernel must come prebuilt (modules/kernel.nix).
+      - name: The kernel is available prebuilt
+        run: nix build --print-build-logs --no-link --max-jobs 0 .#nixosConfigurations.jojo.config.boot.kernelPackages.kernel
+
+      - name: Install jojo in a VM and boot it
+        run: nix build --print-build-logs --no-link .#install-test
+
+      - name: Report in an issue
+        if: always() && github.ref == 'refs/heads/main'
+        uses: ./.github/actions/ci-issue
+        with:
+          status: ${{ job.status }}
+          hint: >-
+            install-jojo, the installer ISO's script, didn't get through
+            installing jojo in a VM and booting it. Don't install from an
+            ISO built from main until this issue closes.

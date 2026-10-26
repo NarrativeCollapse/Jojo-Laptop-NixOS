@@ -29,6 +29,13 @@ branches). Changes must evaluate on both releases until the upgrade. A
 failing Check on main or Next release run opens a GitHub issue titled
 "<workflow> is failing", which closes itself once the workflow passes.
 
+`install-test.yml` runs `tests/install.nix` (`nix build .#install-test`,
+not part of `nix flake check`: ~60 GB of disk, half an hour): install-jojo
+end to end in VMs, offline, installing a prebuilt jojo
+(`installTestSystem` in flake.nix, via the script's INSTALL_JOJO_SYSTEM)
+and evaluating the config it wrote. Changes to scripts/install-jojo.sh's
+prompts must keep the test's typed answers in step.
+
 ## Versioning (keep this up to date)
 
 The config has a version number (`0.N`: 0.1, 0.2, … 0.10), defined once as

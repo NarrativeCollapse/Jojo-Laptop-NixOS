@@ -2,6 +2,11 @@
 # installer ISO). Built by hosts/installer/configuration.nix, which sets
 # REPO_URL, SNAPSHOT, SNAPSHOT_REV, CONFIG_VERSION, KERNEL_CACHE and PATH
 # and adds scripts/lib/confirm.sh.
+#
+# INSTALL_JOJO_SYSTEM, when set, is a prebuilt jojo system to install
+# instead of building the config, so nothing needs downloading and the
+# internet checks are skipped. Only the installer test (tests/install.nix)
+# sets it: its VM has no internet.
 
 if [ "$(id -u)" -ne 0 ]; then
   exec sudo "$0" "$@"
@@ -21,20 +26,24 @@ INTRO
 echo "Config snapshot on this USB stick: $CONFIG_VERSION (commit $SNAPSHOT_REV)."
 
 step "1. Internet"
-until curl -fsS --max-time 10 -o /dev/null https://cache.nixos.org/nix-cache-info; do
-  echo "No internet connection. Packages are downloaded during the install."
-  read -r -p "Press Enter to open the Wi-Fi setup (nmtui), or Ctrl+C to stop. " _
-  nmtui || true
-done
-echo "Connected."
-# jojo's kernel (CachyOS, modules/kernel.nix) downloads from its own cache.
-# Checked now, before anything is erased: without it, the install would
-# compile the kernel, an hour or more.
-if ! curl -fsS --max-time 15 -o /dev/null "$KERNEL_CACHE/nix-cache-info"; then
-  echo "The kernel's download server ($KERNEL_CACHE) can't be reached, so the"
-  echo "install would have to compile the kernel (an hour or more). Trying again"
-  echo "later is usually better."
-  confirm "Install anyway?" || exit 1
+if [ -n "${INSTALL_JOJO_SYSTEM:-}" ]; then
+  echo "Installing the prebuilt system $INSTALL_JOJO_SYSTEM; no downloads needed."
+else
+  until curl -fsS --max-time 10 -o /dev/null https://cache.nixos.org/nix-cache-info; do
+    echo "No internet connection. Packages are downloaded during the install."
+    read -r -p "Press Enter to open the Wi-Fi setup (nmtui), or Ctrl+C to stop. " _
+    nmtui || true
+  done
+  echo "Connected."
+  # jojo's kernel (CachyOS, modules/kernel.nix) downloads from its own cache.
+  # Checked now, before anything is erased: without it, the install would
+  # compile the kernel, an hour or more.
+  if ! curl -fsS --max-time 15 -o /dev/null "$KERNEL_CACHE/nix-cache-info"; then
+    echo "The kernel's download server ($KERNEL_CACHE) can't be reached, so the"
+    echo "install would have to compile the kernel (an hour or more). Trying again"
+    echo "later is usually better."
+    confirm "Install anyway?" || exit 1
+  fi
 fi
 
 step "2. Choose the disk to erase"
@@ -90,7 +99,9 @@ lsblk -lnpo NAME,TYPE "$disk" | awk '$2 == "crypt" { print $1 }' | while read -r
 done
 wipefs -af "$disk"
 sgdisk --zap-all "$disk"
-sgdisk -n1:1MiB:+1GiB -t1:ef00 -c1:BOOT -n2:0:0 -t2:8309 -c2:cryptroot "$disk"
+# 2 GB for the boot partition: every version in the boot menu keeps two
+# kernels there (CachyOS's and NixOS's own, modules/kernel.nix).
+sgdisk -n1:1MiB:+2GiB -t1:ef00 -c1:BOOT -n2:0:0 -t2:8309 -c2:cryptroot "$disk"
 partprobe "$disk" || true
 udevadm settle
 mapfile -t parts < <(lsblk -lnpo NAME,TYPE "$disk" | awk '$2 == "part" { print $1 }')
@@ -134,7 +145,11 @@ git -C "$dest" -c user.name="install-jojo" -c user.email="install-jojo@localhost
   commit --quiet -m "hosts/jojo: hardware configuration for this install"
 
 step "6. Installing (downloads the system; this takes a while)"
-nixos-install --no-root-passwd --flake "$dest#jojo"
+if [ -n "${INSTALL_JOJO_SYSTEM:-}" ]; then
+  nixos-install --no-root-passwd --system "$INSTALL_JOJO_SYSTEM"
+else
+  nixos-install --no-root-passwd --flake "$dest#jojo"
+fi
 
 step "7. Your login password"
 until nixos-enter --root /mnt -c "passwd austin"; do
