@@ -53,7 +53,7 @@ in
     # The installer USB, as far as the test needs: install-jojo, the
     # config copy, and a root shell on the first console.
     installer =
-      { lib, ... }:
+      { lib, pkgs, ... }:
       {
         imports = [ disk ];
         # UEFI, as on the laptop: jojo's boot loader writes its boot entry
@@ -68,7 +68,13 @@ in
         virtualisation.memorySize = 6144;
 
         services.getty.autologinUser = "root";
-        environment.systemPackages = [ installJojo ];
+        # install-jojo brings its own tools; these are for the test's checks
+        # (the ISO has both too).
+        environment.systemPackages = [
+          installJojo
+          pkgs.cryptsetup
+          pkgs.git
+        ];
         environment.etc."jojo-config".source = snapshot;
 
         nix.settings = {
