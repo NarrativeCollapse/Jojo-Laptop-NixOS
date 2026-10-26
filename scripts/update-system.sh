@@ -59,6 +59,17 @@ version=$(python3 scripts/bump-version.py "$log")
 git commit --quiet -m "chore: update flake.lock ($version)" -- "${files[@]}"
 phase=committed
 
+# The CachyOS kernel comes prebuilt from its own cache (modules/kernel.nix).
+# If that doesn't have this update's kernel (the cache is down, or hasn't
+# built it yet), stop rather than compile one for an hour. --max-jobs 0:
+# download only, never build.
+echo "Checking that the kernel is available prebuilt..."
+if ! nix build --no-link --max-jobs 0 "$CONFIG_FLAKE#nixosConfigurations.$CONFIG_HOST.config.boot.kernelPackages.kernel" 2>/dev/null; then
+  echo "This update's kernel isn't available prebuilt yet (its download server is"
+  echo "down, or hasn't built it), so nothing was applied. Try again in a day or so."
+  exit 1
+fi
+
 echo "Building $version (nothing on the system changes yet)..."
 # The link in $work keeps the build from being deleted by Nix's cleanup
 # (min-free, base.nix) before it's applied.

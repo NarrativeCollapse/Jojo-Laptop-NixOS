@@ -9,6 +9,7 @@
 # from the panel, then double-click "Install jojo" on the desktop, or run
 # `sudo install-jojo` in Konsole.
 {
+  config,
   lib,
   pkgs,
   modulesPath,
@@ -45,13 +46,20 @@ let
       SNAPSHOT = snapshot;
       SNAPSHOT_REV = snapshotRev;
       CONFIG_VERSION = version;
+      KERNEL_CACHE = config.my.kernelCache;
     };
     text =
       builtins.readFile ../../scripts/lib/confirm.sh + builtins.readFile ../../scripts/install-jojo.sh;
   };
 in
 {
-  imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-graphical-base.nix" ];
+  imports = [
+    "${modulesPath}/installer/cd-dvd/installation-cd-graphical-base.nix"
+    # The CachyOS kernel's binary cache, so the install downloads jojo's
+    # kernel instead of compiling it. (The live system itself runs NixOS's
+    # own kernel.)
+    ../../modules/cachyos-cache.nix
+  ];
 
   image.baseName = lib.mkForce "jojo-installer-${version}";
   networking.hostName = "jojo-installer";

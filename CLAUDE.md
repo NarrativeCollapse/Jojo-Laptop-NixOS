@@ -8,6 +8,15 @@ Intel-only HP laptop); the hardware differences are `modules/nvidia.nix`,
 Steam's offload environment in `modules/gaming.nix`, and the host files.
 Fixes made in one repository don't reach the other on their own.
 
+The kernel is CachyOS's (`modules/kernel.nix`), from the
+`nix-cachyos-kernel` flake's pinned overlay: it and everything built
+against it (NVIDIA, acer-wmi-battery, xpadneo) come from that flake's
+nixos-unstable-small, prebuilt only in its own cache
+(`modules/cachyos-cache.nix`, whose address and key are repeated in
+`.github/actions/setup-nix/action.yml`). Don't make its nixpkgs follow
+ours (no cache hits, and its patches can mismatch). Kernel changes must
+stay on a variant its Hydra prebuilds (see the flake's `hydraJobs`).
+
 ## Before every commit
 
 Run `nix fmt` and `nix flake check`; both must pass with no evaluation

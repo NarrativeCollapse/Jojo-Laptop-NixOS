@@ -5,7 +5,7 @@ Acer gaming laptop running Plasma 6:
 
 | Part | What it is | How the config handles it |
 | --- | --- | --- |
-| CPU | Intel Core i7-13620H (Raptor Lake, 6 performance + 4 efficiency cores) | Intel microcode updates, thermald, power profiles |
+| CPU | Intel Core i7-13620H (Raptor Lake, 6 performance + 4 efficiency cores) | Intel microcode updates, thermald, power profiles; CachyOS's kernel, compiled for this CPU generation (see [Kernel](#kernel-cachyos)) |
 | Graphics | Intel UHD Graphics and an NVIDIA GeForce RTX 4060 Laptop GPU (8 GB) | The Intel GPU runs the desktop; the RTX 4060 runs Steam and games and powers off otherwise (see [NVIDIA graphics](#nvidia-graphics)) |
 | Screen | 1920×1080, 144 Hz | Plasma normally picks 144 Hz by itself (`hardware-check` says) |
 | Memory | 16 GB | zram swap (compressed in RAM) and oomd |
@@ -20,7 +20,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.3** (git tag `0.3`). See [Versions](#versions).
+**Current version: 0.4** (git tag `0.4`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -72,7 +72,9 @@ Everything below is reference: read the part you need.
   the X11 session, Elisa, the Help Center, the remote desktop server, the
   QR scanner, the on-screen touch keyboard and Discover (Bazaar is the app
   store; see [Flatpak apps](#flatpak-apps)).
-- **Hardware:** systemd-boot with the boot-menu editor locked, a graphical
+- **Hardware:** [CachyOS's kernel](#kernel-cachyos) (its LTS line, built
+  for x86-64-v3) instead of NixOS's own, systemd-boot with the boot-menu
+  editor locked, a graphical
   Breeze boot splash that also shows the disk password prompt (Plymouth),
   systemd initrd, LUKS with TRIM passed through to the SSD, zram swap with the
   kernel tuned for it (as on Fedora and Pop!_OS), systemd-oomd closing a
@@ -142,7 +144,7 @@ isn't in the table, nothing covers it yet.
 | Falling behind on security fixes | A notification once the running system's packages are more than 14 days old | [Updates](#updates) |
 | The system breaking with no update (crash, full disk) | oomd closes a runaway app before the desktop freezes; Nix frees store space when the disk runs low; capped journal; Memtest86+ for suspect RAM | `modules/hardware.nix`, `modules/base.nix` |
 | A battery worn out early (a gaming laptop often lives on the charger) | Charging stops at 80% | [Battery charge limit](#battery-charge-limit) |
-| A tampered or changed package | Every input pinned in `flake.lock` by hash; packages come from the signed NixOS binary cache | `flake.lock` |
+| A tampered or changed package | Every input pinned in `flake.lock` by hash; packages come from the signed NixOS binary cache, except the kernel, which comes from the CachyOS kernel's own signed cache (see [Kernel](#kernel-cachyos) for what that trusts) | `flake.lock`, `modules/cachyos-cache.nix` |
 | Hostile Wi-Fi | Firewall with only mDNS open; ICMP redirects and source routing ignored; Mullvad VPN | `modules/network.nix` |
 | Tracking while browsing | LibreWolf (privacy-hardened Firefox) as the default browser; Mullvad hides your IP | `modules/desktop.nix` |
 | A malicious or buggy app | Flatpak apps run sandboxed (Flatseal to tighten them); `sudo` is sudo-rs (memory-safe) | [Flatpak apps](#flatpak-apps) |
@@ -181,6 +183,8 @@ hosts/installer/
   configuration.nix              the installer ISO: live Plasma + `install-jojo`
 modules/
   base.nix                       nix settings, nh + GC, locale, unfree packages option
+  kernel.nix                     the CachyOS kernel (which variant)
+  cachyos-cache.nix              its binary cache (address and key)
   hardware.nix                   boot, Plymouth splash, zram + oomd, power, battery limit,
                                  lid, driver options, firmware, disk health, graphics,
                                  Bluetooth, `hardware-check`
@@ -332,7 +336,9 @@ Acer laptops, once it's enabled in the BIOS; see
 **What `install-jojo` does**, asking before anything destructive:
 
 1. Checks the internet connection (packages download during the install)
-   and opens `nmtui` if there's none.
+   and opens `nmtui` if there's none, and that the CachyOS kernel's
+   download server answers (if not, it asks before going on: the install
+   would compile the kernel, an hour or more).
 2. Lists the disks, never including the USB stick itself. You type the disk
    to install on, then type its name again to confirm erasing it.
 3. Asks for the disk-encryption password (twice); it's asked at every boot.
@@ -438,8 +444,11 @@ changes anything.
   2. Runs `nix flake update`. If nothing is newer, it says so and stops.
   3. Bumps the config version (`flake.nix`, the README's "Current version"
      and a Versions row naming the updated inputs) and commits it locally.
-  4. Builds the new system without activating it, and lists every package
-     whose version changes, plus the change in total size (`nvd`).
+  4. Checks that the update's kernel is available prebuilt from its cache
+     (see [Kernel](#kernel-cachyos)); if not, it stops and undoes the
+     commit rather than compile a kernel for an hour. Then builds the new
+     system without activating it, and lists every package whose version
+     changes, plus the change in total size (`nvd`).
   5. Asks how to apply it (sudo password for the first two):
      - **[n] Now** switches the running system over.
      - **[r] At the next restart** installs it as the default boot entry
@@ -562,7 +571,9 @@ does: `update` only moves within the release.
    run `update-rollback`.
 
 Leave `system.stateVersion` and `home.stateVersion` at 26.05: they record
-the release the laptop was installed with, not the one it runs.
+the release the laptop was installed with, not the one it runs. The
+[CachyOS kernel](#kernel-cachyos) doesn't follow the NixOS release (it
+comes from unstable either way), so upgrade day doesn't change it.
 
 Afterwards, tidy up: in `modules/network.nix` keep just
 `gui.enable = true;` for Mullvad. The Next release workflow moves on to
@@ -593,12 +604,13 @@ Useful to know:
 - **What's on it:** `nvidia-smi` shows the GPU's load, memory, temperature
   and the apps using it. Running it wakes the GPU for a few seconds.
 - **Driver:** NVIDIA's open kernel module (what NVIDIA recommends for RTX
-  20-series and newer), the version that comes with the NixOS release. It
-  updates with `update` [s] like everything else. The kernel module comes
-  prebuilt from NixOS's binary cache, but NixOS can't redistribute the
-  rest of the driver (it's unfree), so after a driver update the laptop
-  downloads it from NVIDIA (about 400 MB) and unpacks it itself, which
-  adds a few minutes to that update.
+  20-series and newer). It comes with the [kernel](#kernel-cachyos), so
+  it's the version in nixos-unstable (595.104 at the moment) rather than
+  26.05's, and updates with `update` [s] like everything else. The module
+  is compiled for the CachyOS kernel on the laptop, and NixOS can't
+  redistribute the rest of the driver (it's unfree), so after a kernel or
+  driver update the laptop compiles the module and downloads the driver
+  from NVIDIA (about 400 MB), which adds a few minutes to that update.
 - **Suspend:** the GPU's memory is saved across suspend, so a game left
   running survives closing the lid.
 - **Video** is decoded by the Intel GPU (VA-API), in browsers and video
@@ -609,6 +621,55 @@ Useful to know:
   does.
 - If the desktop doesn't come up after an update that changed the driver,
   pick the previous version in the boot menu.
+
+## Kernel (CachyOS)
+
+`modules/kernel.nix`. jojo runs [CachyOS](https://cachyos.org)'s kernel
+instead of NixOS's own. CachyOS tunes the kernel for desktop and gaming
+responsiveness (its patch set, a 1000 Hz timer, full preemption, the ADIOS
+disk scheduler, `-O3` builds), and this build is compiled for x86-64-v3,
+the instruction set of jojo's CPU generation, rather than for every
+x86-64 CPU. It's CachyOS's LTS line, 6.18, the same series NixOS 26.05
+uses, so NVIDIA's driver and the add-on drivers (battery limit, Xbox
+controller) build against it reliably. Expect smoother frame pacing under
+load more than higher FPS. `uname -r` shows the running kernel.
+
+**Where it comes from**, since it's the one part of the system that isn't
+from NixOS 26.05:
+
+- The [nix-cachyos-kernel](https://github.com/xddxdd/nix-cachyos-kernel)
+  flake builds its kernels from its own pinned copy of
+  **nixos-unstable**. So the kernel, NVIDIA's driver and the drivers built
+  against the kernel come from unstable; everything else stays on 26.05.
+  `update` moves it along with everything else.
+- The kernel downloads prebuilt from the flake author's binary cache,
+  `cache.lantian.pub`, signed with its own key
+  (`modules/cachyos-cache.nix`). Everything else still comes from NixOS's
+  own cache first. NVIDIA's module and the small drivers compile on the
+  laptop, a few minutes after each kernel update.
+- **What that trusts:** a kernel controls the whole machine, so this means
+  trusting that cache's owner as much as NixOS itself. In October 2026 his
+  servers were broken into through his SSH key; he took them offline,
+  reinstalled them, and on 24 October moved the cache to a new address
+  with a new signing key, saying no data had been changed. Only the new
+  address and key are trusted here.
+- **If that cache is down** (it was for nine days that October), Nix would
+  compile the kernel itself, an hour or more. `update` checks first and
+  stops; the installer checks before erasing anything; CI fails at its
+  first step rather than compile.
+
+**Back to NixOS's own kernel** (if this one misbehaves, or to stop
+trusting the extra cache): in `hosts/jojo/configuration.nix`, delete the
+`../../modules/kernel.nix` line, then `rebuild`. Until then, the previous
+version in the boot menu has the previous kernel.
+
+**Other CachyOS variants**, one name to change in `modules/kernel.nix`
+(both prebuilt too): `linuxPackages-cachyos-bore-x86_64-v3` adds BORE,
+CachyOS's scheduler that favors interactive programs (games, the desktop)
+over background work, which the LTS line doesn't have, and
+`linuxPackages-cachyos-latest-x86_64-v3` is the newest kernel without it.
+Both are CachyOS's newest kernel (7.x), which NVIDIA's driver sometimes
+trails.
 
 ## Gaming
 
@@ -665,7 +726,8 @@ What's specific to this laptop, beyond the [NVIDIA GPU](#nvidia-graphics)
 and [Gaming](#gaming):
 
 - **CPU:** the i7-13620H has 6 performance and 4 efficiency cores. The
-  kernel's scheduler puts busy threads on the performance cores first
+  kernel's scheduler ([CachyOS's kernel](#kernel-cachyos), with the
+  mainline EEVDF scheduler) puts busy threads on the performance cores first
   (from the core rankings the firmware reports), power-profiles-daemon sets how eagerly they boost (power
   saver on battery, balanced on AC), and thermald follows the laptop's own
   thermal tables, the ones Windows uses. `sensors` shows the core and SSD
@@ -1400,10 +1462,13 @@ reached no one (the 19 October Next release failure went unnoticed that
 way). The shared step is `.github/actions/ci-issue/action.yml`.
 
 **Almost nothing is compiled.** Everything heavy downloads prebuilt from
-cache.nixos.org; CI (and the laptop) build small config files, and
-unpack NVIDIA's driver, which the cache can't carry because it's unfree
-(a download from NVIDIA and a few minutes; see
-[NVIDIA graphics](#nvidia-graphics)). Xwayland is the stock package
+cache.nixos.org, and the kernel from the CachyOS kernel's cache (see
+[Kernel](#kernel-cachyos); each workflow first checks that it's there and
+fails rather than spend hours compiling it). CI (and the laptop) build
+small config files, the kernel modules for the CachyOS kernel (NVIDIA's,
+the battery limit's, xpadneo; a few minutes), and unpack NVIDIA's
+driver, which the cache can't carry because it's unfree (a download from
+NVIDIA; see [NVIDIA graphics](#nvidia-graphics)). Xwayland is the stock package
 too, rather than one NixOS would rebuild on every update: see
 `programs.xwayland.defaultFontPath` in `modules/desktop.nix`. The
 workflows share their setup (disk space, Nix) through
@@ -1446,6 +1511,7 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.3** | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
+| **0.4** | CachyOS's kernel instead of NixOS's own: its LTS line (6.18), compiled for x86-64-v3, prebuilt from the nix-cachyos-kernel flake's cache (new address and key since its October break-in; the old ones aren't trusted). It and NVIDIA's driver (now 595.104) come from nixos-unstable; the rest stays on 26.05. `update`, the installer and CI check that the kernel is available prebuilt before going on, rather than compile it. New README section: Kernel (CachyOS). |
+| 0.3 | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
 | 0.2 | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |
 | 0.1 | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |

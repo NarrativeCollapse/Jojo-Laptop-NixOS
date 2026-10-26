@@ -35,6 +35,12 @@ jobs:
 
       - uses: ./.github/actions/setup-nix
 
+      # The CachyOS kernel must come prebuilt from its cache
+      # (modules/kernel.nix): if it isn't there, the steps below would spend
+      # hours compiling it. --max-jobs 0 fails instead of building.
+      - name: The kernel is available prebuilt
+        run: nix build --print-build-logs --no-link --max-jobs 0 $NEXT .#nixosConfigurations.jojo.config.boot.kernelPackages.kernel
+
       # $NEXT is unquoted on purpose: it's a list of arguments.
       - name: nix flake check
         run: nix flake check --print-build-logs $NEXT

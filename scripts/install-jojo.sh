@@ -1,7 +1,7 @@
 # install-jojo: erase a disk, encrypt it and install this config (the
 # installer ISO). Built by hosts/installer/configuration.nix, which sets
-# REPO_URL, SNAPSHOT, SNAPSHOT_REV, CONFIG_VERSION and PATH and adds
-# scripts/lib/confirm.sh.
+# REPO_URL, SNAPSHOT, SNAPSHOT_REV, CONFIG_VERSION, KERNEL_CACHE and PATH
+# and adds scripts/lib/confirm.sh.
 
 if [ "$(id -u)" -ne 0 ]; then
   exec sudo "$0" "$@"
@@ -27,6 +27,15 @@ until curl -fsS --max-time 10 -o /dev/null https://cache.nixos.org/nix-cache-inf
   nmtui || true
 done
 echo "Connected."
+# jojo's kernel (CachyOS, modules/kernel.nix) downloads from its own cache.
+# Checked now, before anything is erased: without it, the install would
+# compile the kernel, an hour or more.
+if ! curl -fsS --max-time 15 -o /dev/null "$KERNEL_CACHE/nix-cache-info"; then
+  echo "The kernel's download server ($KERNEL_CACHE) can't be reached, so the"
+  echo "install would have to compile the kernel (an hour or more). Trying again"
+  echo "later is usually better."
+  confirm "Install anyway?" || exit 1
+fi
 
 step "2. Choose the disk to erase"
 iso_disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso 2>/dev/null)" 2>/dev/null || true)

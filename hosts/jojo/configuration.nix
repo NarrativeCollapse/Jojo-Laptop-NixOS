@@ -26,6 +26,7 @@ in
 
     ../../modules/base.nix
     ../../modules/hardware.nix
+    ../../modules/kernel.nix
     ../../modules/network.nix
     ../../modules/desktop.nix
     ../../modules/gaming.nix

@@ -12,7 +12,13 @@ runs:
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
         df -h /
 
-    # Everything slow comes prebuilt from cache.nixos.org; what CI builds
-    # itself is small config files and NVIDIA's unpacked driver, so there is
-    # no separate build cache.
+    # Everything slow comes prebuilt: from cache.nixos.org, and the CachyOS
+    # kernel from its own cache (the address and key in
+    # modules/cachyos-cache.nix). What CI builds itself is small config
+    # files, NVIDIA's driver and the kernel modules built against the
+    # CachyOS kernel, so there is no separate build cache.
     - uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          extra-substituters = https://cache.lantian.pub/lantian
+          extra-trusted-public-keys = lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ=

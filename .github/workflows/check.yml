@@ -26,6 +26,12 @@ jobs:
       # Frees disk space and installs Nix.
       - uses: ./.github/actions/setup-nix
 
+      # The CachyOS kernel must come prebuilt from its cache
+      # (modules/kernel.nix): if it isn't there, the steps below would spend
+      # hours compiling it. --max-jobs 0 fails instead of building.
+      - name: The kernel is available prebuilt
+        run: nix build --print-build-logs --no-link --max-jobs 0 .#nixosConfigurations.jojo.config.boot.kernelPackages.kernel
+
       # Format, statix, deadnix, README version, evaluation of the system, and
       # the VM boot test (tests/boot.nix; install-nix-action enables KVM).
       - name: nix flake check
