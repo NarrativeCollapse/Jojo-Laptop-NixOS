@@ -1,14 +1,16 @@
 name: Tag versions
 
-# Gives every config version its git tag (0.3, 0.4, ...) on the commit that
-# set it in flake.nix, after every push to main that changes flake.nix, so
-# neither the laptop nor the Update flake.lock workflow tags anything
-# itself. scripts/tag-versions.sh only adds missing tags, so its first run
-# also tagged the versions that never got one (0.1, 0.2).
+# Gives each new config version its git tag (0.3, 0.4, ...): after a push to
+# main that changes flake.nix, scripts/tag-versions.sh tags the pushed
+# commit with the version it sets, if that version has no tag yet. Neither
+# the laptop nor the Update flake.lock workflow tags anything itself.
 on:
   push:
     branches: [main]
-    paths: [flake.nix]
+    paths:
+      - flake.nix
+      - scripts/tag-versions.sh
+      - .github/workflows/tag.yml
   workflow_dispatch:
 
 permissions:
@@ -25,7 +27,7 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      # The whole history, to find the commit that set each version.
+      # With the existing tags, to see whether the version has one.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -36,10 +38,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           new=$(scripts/tag-versions.sh)
           if [ -n "$new" ]; then
-            git push origin $(sed 's|^|refs/tags/|' <<< "$new")
-            echo "Tagged: $(echo $new)" >> "$GITHUB_STEP_SUMMARY"
+            git push origin "refs/tags/$new"
+            echo "Tagged: $new" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Every version already has its tag." >> "$GITHUB_STEP_SUMMARY"
+            echo "This version already has its tag." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Report in an issue

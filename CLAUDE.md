@@ -26,8 +26,10 @@ The config has a version number (`0.N`: 0.1, 0.2, … 0.10), defined once as
 `version` in flake.nix. It becomes a system label tag, and must match the
 "**Current version: 0.N**" line at the top of README.md (`nix flake check`
 enforces this). Each version also gets a git tag of the same name, made by
-the Tag versions workflow (`tag.yml`, `scripts/tag-versions.sh`) once it
-reaches main: don't tag by hand. Moving to 1.0 is the owner's call, not a
+the Tag versions workflow (`tag.yml`, `scripts/tag-versions.sh`), which
+tags the pushed commit once it reaches main: don't tag by hand. (0.1 and
+0.2 have none: a workflow can't tag commits whose workflow files differ
+from main's.) Moving to 1.0 is the owner's call, not a
 bump.
 
 - Bump the version (the number after the dot, by one) in the same push as any change that affects the

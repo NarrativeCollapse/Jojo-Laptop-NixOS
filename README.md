@@ -1367,9 +1367,11 @@ Five GitHub Actions workflows live in `.github/workflows/`:
   then), without touching `flake.lock`; see
   [Release upgrade](#release-upgrade). A failure there blocks nothing.
 - **Tag versions** (every push to `main` that changes `flake.nix`): tags
-  the first commit that set each new version (`0.3`), so `git checkout
-  0.3` shows that version. Tags already there are left alone
-  (`scripts/tag-versions.sh`); its first run also tagged 0.1 and 0.2.
+  the pushed commit with the version it sets (`0.3`), if that version has
+  no tag yet, so `git checkout 0.3` shows that version
+  (`scripts/tag-versions.sh`). 0.1 and 0.2 have no tags: GitHub doesn't
+  let a workflow tag an older commit whose workflow files differ from
+  today's. Their commits are in the history (`git log --grep '(0.2)'`).
 - **Build installer ISO** (only when run by hand from the Actions tab):
   builds the installer ISO and offers it as a download on the run's page
   for 7 days (see [Reinstalling](#reinstalling-the-installer-iso)).
@@ -1432,9 +1434,9 @@ comments:
 The version goes up by 0.1 whenever a change affects the built system
 (packages, services, Home Manager config, flake inputs): 0.1, 0.2, … 0.9,
 0.10. Changes to docs, lint config or comments alone don't bump it. Each
-version has a matching git tag (`git checkout 0.1` to see it), created by
-the [Tag versions](#ci) workflow once the version reaches GitHub, and git
-history has the detail. 1.0 is yours to declare, for example once jojo is
+version from 0.3 on has a matching git tag (`git checkout 0.3` to see it),
+created by the [Tag versions](#ci) workflow once the version reaches
+GitHub, and git history has the detail. 1.0 is yours to declare, for example once jojo is
 installed and the hardware checklist passes.
 
 The version is set once, as `version` in `flake.nix`. It's added to the
