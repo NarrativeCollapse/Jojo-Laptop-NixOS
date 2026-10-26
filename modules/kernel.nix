@@ -15,13 +15,24 @@
 #   module and the small drivers compile on the laptop, a few minutes per
 #   kernel update.
 #
-# Back to NixOS's own kernel: delete this file's import in
+# NixOS's own kernel is always in the boot menu too (the "nixos-kernel"
+# entry, below). To go back to it for good: delete this file's import in
 # hosts/jojo/configuration.nix (the overlay in flake.nix can stay), then
 # rebuild.
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
   imports = [ ./cachyos-cache.nix ];
+
+  # A second boot menu entry for every version, "nixos-kernel": the same
+  # system with NixOS 26.05's own kernel (and the NVIDIA driver that comes
+  # with it). If a CachyOS kernel update stops jojo booting or breaks the
+  # NVIDIA driver, or its cache goes away, it's one boot away, without
+  # editing anything. It costs a second set of kernel modules and NVIDIA
+  # driver on disk (about 1 GB) and a few more minutes on some updates.
+  specialisation.nixos-kernel.configuration = {
+    boot.kernelPackages = lib.mkForce pkgs.linuxPackages;
+  };
 
   # The LTS line (6.18, the series NixOS 26.05 itself uses) rather than
   # CachyOS's newest kernel, so NVIDIA's driver and the out-of-tree modules

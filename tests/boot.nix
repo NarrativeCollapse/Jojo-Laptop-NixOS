@@ -237,6 +237,14 @@
         machine.succeed("modinfo -F parm acer_wmi_battery | grep -q enable_health_mode")
         machine.succeed("grep -qx 'options acer-wmi-battery enable_health_mode=1' /etc/modprobe.d/nixos.conf")
 
+    with subtest("The kernel is CachyOS's, with NixOS's own as a boot entry"):
+        booted = machine.succeed("readlink -f /run/current-system/kernel").strip()
+        assert "cachyos" in booted, booted
+        fallback = machine.succeed(
+            "readlink -f /run/current-system/specialisation/nixos-kernel/kernel"
+        ).strip()
+        assert "cachyos" not in fallback, fallback
+
     with subtest("Gaming: NTSYNC for Proton, split-lock throttling off"):
         # /dev/ntsync exists and Proton (any user) can open it.
         machine.succeed("test -c /dev/ntsync")

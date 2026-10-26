@@ -20,7 +20,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.4** (git tag `0.4`). See [Versions](#versions).
+**Current version: 0.5** (git tag `0.5`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -273,10 +273,11 @@ Then in the **BIOS** (press **F2** repeatedly right after powering on):
 5. **F10** saves and restarts.
 
 To boot the installer, plug in the stick, power on and tap **F12**, then
-pick the USB stick. If it freezes or the screen stays black on the way to
-the live desktop, start again and pick **No modesetting** from the stick's
-boot menu options (the NVIDIA GPU's open-source driver occasionally trips
-up the live system; the installed system uses NVIDIA's own). If the
+pick the USB stick. The live system leaves the NVIDIA GPU alone (its
+open-source driver, the usual cause of freezes and black screens on the
+way to the live desktop, is turned off; the installed system uses NVIDIA's
+own). If it still freezes, start again and pick **No modesetting** from
+the stick's boot menu options. If the
 installer's disk list doesn't show the 512 GB
 SSD, the BIOS has Intel VMD (RST) on: on the BIOS's Main tab, press
 **Ctrl+S** to show hidden options and set **VMD Controller** to
@@ -658,10 +659,14 @@ from NixOS 26.05:
   stops; the installer checks before erasing anything; CI fails at its
   first step rather than compile.
 
-**Back to NixOS's own kernel** (if this one misbehaves, or to stop
-trusting the extra cache): in `hosts/jojo/configuration.nix`, delete the
-`../../modules/kernel.nix` line, then `rebuild`. Until then, the previous
-version in the boot menu has the previous kernel.
+**NixOS's own kernel is always in the boot menu**: next to each version
+there's a second entry marked **nixos-kernel**, the same system with NixOS
+26.05's kernel (and the NVIDIA driver that comes with it). If a CachyOS
+kernel update stops jojo booting, breaks the desktop, or its cache goes
+away, pick that entry. It costs about 1 GB of disk and a few more minutes
+on updates that change it. To go back to NixOS's kernel for good (or to
+stop trusting the extra cache): in `hosts/jojo/configuration.nix`, delete
+the `../../modules/kernel.nix` line, then `rebuild`.
 
 **Other CachyOS variants**, one name to change in `modules/kernel.nix`
 (both prebuilt too): `linuxPackages-cachyos-bore-x86_64-v3` adds BORE,
@@ -1511,7 +1516,8 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.4** | CachyOS's kernel instead of NixOS's own: its LTS line (6.18), compiled for x86-64-v3, prebuilt from the nix-cachyos-kernel flake's cache (new address and key since its October break-in; the old ones aren't trusted). It and NVIDIA's driver (now 595.104) come from nixos-unstable; the rest stays on 26.05. `update`, the installer and CI check that the kernel is available prebuilt before going on, rather than compile it. The battery driver now installs the way NixOS's upcoming module signing expects (the Next release check failed on it). New README section: Kernel (CachyOS). |
+| **0.5** | A permanent boot-menu entry with NixOS 26.05's own kernel next to each version ("nixos-kernel"), in case a CachyOS kernel update breaks booting or its cache goes away. The installer USB no longer loads the open-source NVIDIA driver (nouveau), the usual cause of freezes and black screens on the way to the live desktop. |
+| 0.4 | CachyOS's kernel instead of NixOS's own: its LTS line (6.18), compiled for x86-64-v3, prebuilt from the nix-cachyos-kernel flake's cache (new address and key since its October break-in; the old ones aren't trusted). It and NVIDIA's driver (now 595.104) come from nixos-unstable; the rest stays on 26.05. `update`, the installer and CI check that the kernel is available prebuilt before going on, rather than compile it. The battery driver now installs the way NixOS's upcoming module signing expects (the Next release check failed on it). New README section: Kernel (CachyOS). |
 | 0.3 | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
 | 0.2 | Fixes from a full review. The tips for Acer's performance modes, Realtek Wi-Fi and screen flicker are now commented lines in one driver-options block in `modules/hardware.nix` (two of them, as written, would have added `boot.kernelParams` a second time, which doesn't build). `lspci` is installed (the README's GPU and Wi-Fi checks use it). smartd no longer wakes sleeping USB hard drives every 30 minutes. The backup reminder can't fire twice at login. Corrected: "Run using dedicated graphics card" is under Edit Application… → Advanced Options in Plasma 6.6, not the right-click menu; NTSYNC needs a Wine 11-based Proton. New: a Steam library on a fresh ext4 drive needs `chown` first; the installer points out the SSD among the disks; README tips for a live USB that freezes (No modesetting) and for `update` when the checkout has local commits. |
 | 0.1 | jojo's first version: the shitbox config ([NixOS-Desktop-KDE-Intel](https://github.com/NarrativeCollapse/NixOS-Desktop-KDE-Intel) v64) adapted to the Acer laptop. The RTX 4060 runs NVIDIA's open driver as PRIME render offload (powered off when idle, VRAM kept across suspend, Dynamic Boost); Steam and its games run on it; "Run using dedicated graphics card" and `nvidia-offload` for anything else; video decodes on the Intel GPU. Gaming: NTSYNC for Proton, split-lock throttling off, GameMode's P-core pinning, no gamescope login session. Thunderbolt authorization, `sensors`, EasyEffects; Acer's performance modes ready to try (`acer_wmi.predator_v4`). Installed fresh on 26.05. README: Acer install steps (BIOS update, F12 menu, Secure Boot), NVIDIA graphics, Gaming, Hardware notes, hardware checklist. (Developed as v1–v3, which were never tagged or installed.) |

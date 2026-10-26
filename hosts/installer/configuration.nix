@@ -88,6 +88,20 @@ in
   programs.kde-pim.enable = false;
 
   ################################
+  # Graphics: the Intel GPU only
+  ################################
+
+  # nouveau, the open-source NVIDIA driver, is the usual cause of a black
+  # screen or a freeze on the way to the live desktop on laptops with an
+  # NVIDIA GPU, such as jojo's RTX 4060. The live session doesn't need it:
+  # the laptop's screen is driven by the Intel GPU (and a screen that
+  # isn't still gets the firmware's plain framebuffer). The installed
+  # system uses NVIDIA's own driver (modules/nvidia.nix). On the kernel
+  # command line too, so it holds from the very start of boot.
+  boot.blacklistedKernelModules = [ "nouveau" ];
+  boot.kernelParams = [ "modprobe.blacklist=nouveau" ];
+
+  ################################
   # Wi-Fi that works out of the box
   ################################
 
