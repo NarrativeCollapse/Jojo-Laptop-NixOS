@@ -6,6 +6,8 @@
 }:
 
 let
+  inherit (config.boot.kernelPackages) kernel;
+
   # smartd's alert, through notify-desktop (notifications.nix). If austin
   # isn't logged in it's skipped, but the warning repeats daily and is in
   # `journalctl -u smartd`.
@@ -124,13 +126,29 @@ in
   # Battery charge limit: charging stops at 80%, as Acer Care Center's
   # setting does on Windows (a battery kept full on the charger, as a gaming
   # laptop often is, loses capacity years sooner). It's Acer's own "battery
-  # health mode", reached through the acer-wmi-battery driver (prebuilt in
-  # NixOS's cache; the Nitro V 15 ANV15-51 is on its list of laptops it
-  # works on), which turns it on when it loads, at every boot. To charge to
-  # 100% once, until the next boot:
+  # health mode", reached through the acer-wmi-battery driver (compiled for
+  # the kernel, modules/kernel.nix; the Nitro V 15 ANV15-51 is on its list
+  # of laptops it works on), which turns it on when it loads, at every boot.
+  # To charge to 100% once, until the next boot:
   #   echo 0 | sudo tee /sys/bus/wmi/drivers/acer-wmi-battery/health_mode
   # For good: change enable_health_mode=1 to 0 below.
-  boot.extraModulePackages = [ config.boot.kernelPackages.acer-wmi-battery ];
+  #
+  # Installed with the kernel's own `modules_install` rather than copied by
+  # hand as nixpkgs' package does, so that NixOS's module signing (kmodigest,
+  # in nixos-unstable since October 2026, headed for 26.11) signs it and writes
+  # the certificate (.ko.cer) unstable then requires of every add-on module;
+  # without it, building the system's module tree fails there. On 26.05 it
+  # installs the same file. Drop the override once nixpkgs' package does it.
+  boot.extraModulePackages = [
+    (config.boot.kernelPackages.acer-wmi-battery.overrideAttrs {
+      installPhase = ''
+        runHook preInstall
+        make $makeFlags -C ${kernel.dev}/lib/modules/${kernel.modDirVersion}/build \
+          M="$PWD" INSTALL_MOD_PATH="$out" INSTALL_MOD_DIR=kernel/drivers/platform/x86 modules_install
+        runHook postInstall
+      '';
+    })
+  ];
   boot.kernelModules = [ "acer-wmi-battery" ];
 
   # The battery limit's setting (the line without a `#`), then driver
