@@ -113,6 +113,9 @@ luks="luks-$(cryptsetup luksUUID "$root")"
 printf '%s' "$pw1" | cryptsetup open --key-file=- "$root" "$luks"
 unset pw1 pw2
 mkfs.ext4 -F -L nixos "/dev/mapper/$luks"
+# The live system doesn't necessarily have /mnt (the installer test's
+# didn't, and the mount failed).
+mkdir -p /mnt
 mount "/dev/mapper/$luks" /mnt
 mkdir -p /mnt/boot
 mount -o umask=077 "$boot" /mnt/boot

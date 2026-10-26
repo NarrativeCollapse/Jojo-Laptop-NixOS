@@ -99,30 +99,44 @@ in
   };
 
   testScript = ''
+    import re
+
     installer.start()
     installer.wait_for_unit("multi-user.target")
     installer.succeed("udevadm settle")
     installer.wait_until_tty_matches("1", "root@installer")
 
+    # install-jojo's output also goes to a log, and when it exits the shell
+    # prints its exit status, so a script that stops early fails the test
+    # right away, showing its whole output, instead of at a timeout.
+    finished = "install-jojo finished: ([0-9]+)"
+
+    def answer(prompt, reply, timeout=900):
+        installer.wait_until_tty_matches("1", f"{prompt}|{finished}", timeout=timeout)
+        if re.search(finished, installer.get_tty_text("1")):
+            print(installer.succeed("cat /tmp/install-jojo.log"))
+            raise Exception(f"install-jojo exited before asking: {prompt}")
+        installer.send_chars(reply + "\n")
+
     with subtest("install-jojo installs jojo, answered on the console"):
-        installer.send_chars("INSTALL_JOJO_SYSTEM=${installedSystem} install-jojo\n")
-        installer.wait_until_tty_matches("1", "Disk to install on")
-        installer.send_chars("/dev/vda\n")
-        installer.wait_until_tty_matches("1", "again to erase it")
+        installer.send_chars(
+            "INSTALL_JOJO_SYSTEM=${installedSystem} install-jojo 2>&1"
+            " | tee /tmp/install-jojo.log;"
+            " printf 'install-jojo finished: %s\\n' \"''${PIPESTATUS[0]}\"\n"
+        )
+        answer("Disk to install on", "/dev/vda")
         # Without /dev/, which it accepts too.
-        installer.send_chars("vda\n")
-        installer.wait_until_tty_matches("1", "Password: ")
-        installer.send_chars("${diskPassword}\n")
-        installer.wait_until_tty_matches("1", "Again: ")
-        installer.send_chars("${diskPassword}\n")
+        answer("again to erase it", "vda")
+        answer("Password: ", "${diskPassword}")
+        answer("Again: ", "${diskPassword}")
         # Partitioning, the config, then copying the whole system.
-        installer.wait_until_tty_matches("1", "New password", timeout=3600)
-        installer.send_chars("${userPassword}\n")
-        installer.wait_until_tty_matches("1", "Retype new password")
-        installer.send_chars("${userPassword}\n")
-        installer.wait_until_tty_matches("1", "Reboot now")
-        installer.send_chars("n\n")
-        installer.wait_until_tty_matches("1", "jojo is installed on /dev/vda")
+        answer("New password", "${userPassword}", timeout=3600)
+        answer("Retype new password", "${userPassword}")
+        answer("Reboot now", "n")
+        installer.wait_until_tty_matches("1", finished)
+        print(installer.succeed("cat /tmp/install-jojo.log"))
+        status = re.search(finished, installer.get_tty_text("1")).group(1)
+        assert status == "0", f"install-jojo exited with {status}"
 
     with subtest("The disk has the installer's layout"):
         print(installer.succeed("lsblk -o NAME,PARTLABEL,FSTYPE,LABEL,SIZE /dev/vda"))

@@ -20,7 +20,7 @@ the config for shitbox (an HP laptop), adapted to this hardware: the same
 apps, desktop, update menu and backups, plus the NVIDIA GPU. Changes made
 to one repository don't reach the other by themselves.
 
-**Current version: 0.6** (git tag `0.6`). See [Versions](#versions).
+**Current version: 0.7** (git tag `0.7`). See [Versions](#versions).
 
 <img src="docs/screenshots/desktop-v62.jpg" alt="The desktop: the gas-masks wallpaper, Konsole showing the welcome banner with the NixOS logo beside it, and a Breeze Dark taskbar docked along the bottom edge with the white NixOS snowflake as the app launcher, Dolphin, Google Chrome (pinned, tooltip shown) and Konsole, and a 24-hour clock with the date as 13 Oct 2026" width="820">
 
@@ -1535,7 +1535,8 @@ top of this README doesn't match it.
 
 | Version | Highlights |
 | --- | --- |
-| **0.6** | The installer is tested end to end in CI (new Installer test workflow): `install-jojo` installs jojo in a VM, answered on its console, and the installed disk boots with its disk password. The installer makes the boot partition 2 GB instead of 1 GB, room for both kernels of every version in the boot menu. |
+| **0.7** | Installer fix found by the new installer test: `install-jojo` mounted the new disk on `/mnt` without making sure the folder exists, and the live system doesn't always have it ("mount point does not exist"), which stopped the install after the disk was already erased. |
+| 0.6 | The installer is tested end to end in CI (new Installer test workflow): `install-jojo` installs jojo in a VM, answered on its console, and the installed disk boots with its disk password. The installer makes the boot partition 2 GB instead of 1 GB, room for both kernels of every version in the boot menu. |
 | 0.5 | A permanent boot-menu entry with NixOS 26.05's own kernel next to each version ("nixos-kernel"), in case a CachyOS kernel update breaks booting or its cache goes away. The installer USB no longer loads the open-source NVIDIA driver (nouveau), the usual cause of freezes and black screens on the way to the live desktop. |
 | 0.4 | CachyOS's kernel instead of NixOS's own: its LTS line (6.18), compiled for x86-64-v3, prebuilt from the nix-cachyos-kernel flake's cache (new address and key since its October break-in; the old ones aren't trusted). It and NVIDIA's driver (now 595.104) come from nixos-unstable; the rest stays on 26.05. `update`, the installer and CI check that the kernel is available prebuilt before going on, rather than compile it. The battery driver now installs the way NixOS's upcoming module signing expects (the Next release check failed on it). New README section: Kernel (CachyOS). |
 | 0.3 | Battery charging stops at 80% (Acer's battery health mode, through the acer-wmi-battery driver), to keep the battery healthy on the charger. New `hardware-check` command: checks the GPU addresses, whether the RTX 4060 powers off, the screen's refresh rate, sleep, the battery's health and charge limit, the Wi-Fi card, sound and failed services, and saves a report to share. The welcome banner says when `~/nixos-config` has commits that aren't on GitHub (the installer's hardware configuration, for one). Versions are tagged by a GitHub workflow instead of by `update`. |
