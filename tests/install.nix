@@ -135,8 +135,9 @@ in
         answer("Reboot now", "n")
         installer.wait_until_tty_matches("1", finished)
         print(installer.succeed("cat /tmp/install-jojo.log"))
-        status = re.search(finished, installer.get_tty_text("1")).group(1)
-        assert status == "0", f"install-jojo exited with {status}"
+        match = re.search(finished, installer.get_tty_text("1"))
+        assert match is not None
+        assert match.group(1) == "0", f"install-jojo exited with {match.group(1)}"
 
     with subtest("The disk has the installer's layout"):
         print(installer.succeed("lsblk -o NAME,PARTLABEL,FSTYPE,LABEL,SIZE /dev/vda"))
